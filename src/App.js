@@ -211,9 +211,18 @@ function App() {
 
   const handleStartRandom = () => {
     let pool = problems;
+    
+    // 키워드 검색 (문제 ID, 태그, 과목, 세부단원 통합 검색)
     if (searchKeyword.trim()) {
-      pool = pool.filter(p => String(p.문제ID).includes(searchKeyword.trim()));
+      const keyword = searchKeyword.trim().toLowerCase();
+      pool = pool.filter(p => 
+        String(p.문제ID).includes(keyword) || 
+        String(p.태그 || '').toLowerCase().includes(keyword) ||
+        String(p.과목 || '').toLowerCase().includes(keyword) ||
+        String(p.세부단원 || '').toLowerCase().includes(keyword)
+      );
     }
+    
     if (selectedSubjects.length > 0) {
       pool = pool.filter(p => selectedSubjects.includes(String(p.과목).trim()));
     }
@@ -494,7 +503,14 @@ function App() {
   const displayedProblems = isRandomMode 
     ? randomProblems 
     : problems.filter(p => {
-        const matchKeyword = !searchKeyword.trim() || String(p.문제ID).includes(searchKeyword.trim());
+        // 통합 검색: 문제 ID, 태그, 과목, 세부단원을 모두 검색 대상에 포함
+        const keyword = searchKeyword.trim().toLowerCase();
+        const matchKeyword = !keyword || 
+          String(p.문제ID).includes(keyword) ||
+          String(p.태그 || '').toLowerCase().includes(keyword) ||
+          String(p.과목 || '').toLowerCase().includes(keyword) ||
+          String(p.세부단원 || '').toLowerCase().includes(keyword);
+          
         const matchSubj = selectedSubjects.length === 0 || selectedSubjects.includes(String(p.과목).trim());
         const matchUnit = selectedUnits.length === 0 || selectedUnits.includes(String(p.세부단원).trim());
         
@@ -552,10 +568,10 @@ function App() {
       <div style={{ background: '#fff', padding: '20px', borderRadius: '10px', marginBottom: '25px', boxShadow: '0 2px 4px rgba(0,0,0,0.04)', border: '1px solid #e9ecef', display: 'flex', flexDirection: 'column', gap: '15px', alignItems: 'flex-start', textAlign: 'left' }}>
         
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', width: '100%' }}>
-          <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#444', minWidth: '110px' }}>🔍 문제 ID 검색:</span>
+          <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#444', minWidth: '110px' }}>🔍 통합 검색:</span>
           <input 
             type="text" 
-            placeholder="문제 ID 숫자를 입력하세요 (예: 2609)" 
+            placeholder="문제 ID, 태그, 과목, 단원 등을 검색하세요 (예: 2609, 킬러문항)" 
             value={searchKeyword}
             onChange={(e) => { setSearchKeyword(e.target.value); setIsRandomMode(false); setIsTimeAttackMode(false); }}
             style={{ flex: 1, padding: '8px 12px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '14px' }}
@@ -689,6 +705,7 @@ function App() {
               onChange={(e) => setRandomCount(e.target.value)}
               style={{ padding: '6px', borderRadius: '4px', border: '1px solid #ccc' }}
             >
+              <option value="1">1문항 (가볍게 풀기)</option>
               <option value="3">3문항</option>
               <option value="5">5문항</option>
               <option value="10">10문항</option>

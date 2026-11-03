@@ -24,12 +24,12 @@ function App() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [timerActive, setTimerActive] = useState(false);
 
-  // 타임어택 모드 상태 (과목/단원 다중 선택 지원)
+  // 타임어택 모드 상태
   const [isTimeAttackMode, setIsTimeAttackMode] = useState(false);
-  const [taStep, setTaStep] = useState('select'); // 'select' 또는 'playing'
-  const [taSubjMode, setTaSubjMode] = useState('all'); // 'all' 또는 'custom'
+  const [taStep, setTaStep] = useState('select'); 
+  const [taSubjMode, setTaSubjMode] = useState('all'); 
   const [taSelectedSubjs, setTaSelectedSubjs] = useState([]);
-  const [taUnitMode, setTaUnitMode] = useState('all'); // 'all' 또는 'custom'
+  const [taUnitMode, setTaUnitMode] = useState('all'); 
   const [taSelectedUnits, setTaSelectedUnits] = useState([]);
   const [taGrade, setTaGrade] = useState('전체');
   
@@ -40,18 +40,16 @@ function App() {
   const [taTime, setTaTime] = useState(0);
   const [taTimerActive, setTaTimerActive] = useState(false);
 
-  // 랭킹 등록 모달
+  // 랭킹/관리자 상태
   const [rankModalOpen, setRankModalOpen] = useState(false);
   const [rankModeType, setRankModeType] = useState('');
   const [rankScoreValue, setRankScoreValue] = useState(0);
   const [rankDetailInfo, setRankDetailInfo] = useState('');
   const [studentNameInput, setStudentNameInput] = useState('');
 
-  // 관리자 모드 랭킹 편집 상태
   const [editingRank, setEditingRank] = useState(null);
   const [editRankName, setEditRankName] = useState('');
 
-  // 관리자 모드 (비밀번호 '1932')
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminPw, setAdminPw] = useState('');
   
@@ -61,7 +59,8 @@ function App() {
   const [formTag, setFormTag] = useState('');
   const [formErrorRate, setFormErrorRate] = useState('');
   const [formType, setFormType] = useState('객관식');
-  const [formAns, setFormAns] = useState('1');
+  const [formObjAns, setFormObjAns] = useState('1'); // 객관식 답
+  const [formSubjAns, setFormSubjAns] = useState(''); // 주관식 답
   const [isEditing, setIsEditing] = useState(false);
   const [processing, setProcessing] = useState(false);
 
@@ -70,6 +69,7 @@ function App() {
   const [feedbackTargetId, setFeedbackTargetId] = useState('');
   const [feedbackText, setFeedbackText] = useState('');
 
+  // Apps Script 주소를 확인 후 입력하세요
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbzEMHYAPF2V1tzJFzeqTXY4-ce5C_w20rxOz5mqVIpTkcM-9kEehg5etgh3X33a35rxRQ/exec';
 
   const SUBJECTS = ['수학I', '수학II', '미적분', '확률과 통계'];
@@ -212,7 +212,6 @@ function App() {
   const handleStartRandom = () => {
     let pool = problems;
     
-    // 키워드 검색 (문제 ID, 태그, 과목, 세부단원 통합 검색)
     if (searchKeyword.trim()) {
       const keyword = searchKeyword.trim().toLowerCase();
       pool = pool.filter(p => 
@@ -335,9 +334,12 @@ function App() {
     setTaTimerActive(false);
     setTaSubmitted(true);
 
-    const correctAns = String(taProblem.정답 || '').trim();
-    const isSubj = !['1', '2', '3', '4', '5'].includes(correctAns);
-    const correct = isSubj 
+    const objAns = String(taProblem['객관식 답'] || '').trim();
+    const subjAns = String(taProblem['주관식 답'] || '').trim();
+    const isSubjective = !objAns;
+    const correctAns = isSubjective ? subjAns : objAns;
+
+    const correct = isSubjective 
       ? String(taAnswer).trim().toLowerCase() === correctAns.toLowerCase()
       : String(taAnswer).trim() === correctAns;
 
@@ -393,11 +395,9 @@ function App() {
 
   const handleDeleteRank = (item) => {
     if (!window.confirm(`[${item.학번이름}]의 기록을 삭제하시겠습니까?`)) return;
-
     const formData = new URLSearchParams();
     formData.append('action', 'deleteRank');
     formData.append('rowIndex', item.rowIndex);
-
     axios.post(GAS_URL, formData)
       .then(() => {
         alert('랭킹 기록이 삭제되었습니다.');
@@ -421,7 +421,10 @@ function App() {
     formData.append('세부단원', formUnit);
     formData.append('태그', formTag);
     formData.append('오답률', formErrorRate);
-    formData.append('정답', formAns);
+    
+    // 객관식, 주관식 분리 전송
+    formData.append('객관식 답', formType === '객관식' ? formObjAns : '');
+    formData.append('주관식 답', formType === '주관식' ? formSubjAns : '');
 
     axios.post(GAS_URL, formData)
       .then(() => {
@@ -444,26 +447,34 @@ function App() {
     setFormUnit(prob.세부단원 || '');
     setFormTag(prob.태그 || '');
     setFormErrorRate(prob.오답률 || '');
-    setFormAns(String(prob.정답 || '1'));
+    
+    const objAns = prob['객관식 답'] ? String(prob['객관식 답']).trim() : '';
+    const subjAns = prob['주관식 답'] ? String(prob['주관식 답']).trim() : '';
+    
+    if (objAns) {
+      setFormType('객관식');
+      setFormObjAns(objAns);
+      setFormSubjAns('');
+    } else {
+      setFormType('주관식');
+      setFormObjAns('1');
+      setFormSubjAns(subjAns);
+    }
+    
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDelete = (problemId) => {
     if (!window.confirm(`문제 ID [${problemId}]를 삭제하시겠습니까?`)) return;
-
     const formData = new URLSearchParams();
     formData.append('action', 'delete');
     formData.append('문제ID', problemId);
-
     axios.post(GAS_URL, formData)
       .then(() => {
         alert('문제가 삭제되었습니다.');
         fetchData();
       })
-      .catch(err => {
-        console.error('삭제 실패:', err);
-        alert('삭제 중 오류가 발생했습니다.');
-      });
+      .catch(err => alert('삭제 중 오류가 발생했습니다.'));
   };
 
   const resetForm = () => {
@@ -472,7 +483,9 @@ function App() {
     setCustomId(String(nextId));
     setFormTag('');
     setFormErrorRate('');
-    setFormAns('1');
+    setFormType('객관식');
+    setFormObjAns('1');
+    setFormSubjAns('');
   };
 
   const sendFeedback = () => {
@@ -484,16 +497,13 @@ function App() {
     formData.append('action', 'feedback');
     formData.append('문제ID', feedbackTargetId);
     formData.append('피드백내용', feedbackText);
-
     axios.post(GAS_URL, formData)
       .then(() => {
         alert('선생님께 피드백이 성공적으로 전송되었습니다! 감사합니다.');
         setFeedbackModalOpen(false);
         setFeedbackText('');
       })
-      .catch(() => {
-        alert('전송 중 오류가 발생했습니다.');
-      });
+      .catch(() => alert('전송 중 오류가 발생했습니다.'));
   };
 
   const allTags = Array.from(new Set(
@@ -503,7 +513,6 @@ function App() {
   const displayedProblems = isRandomMode 
     ? randomProblems 
     : problems.filter(p => {
-        // 통합 검색: 문제 ID, 태그, 과목, 세부단원을 모두 검색 대상에 포함
         const keyword = searchKeyword.trim().toLowerCase();
         const matchKeyword = !keyword || 
           String(p.문제ID).includes(keyword) ||
@@ -529,7 +538,6 @@ function App() {
 
   const allSetChecked = isRandomMode && randomProblems.length > 0 && randomProblems.every((_, idx) => showResults[idx]);
 
-  // 타임어택 선택용 단원 목록 (전체 선택 시 모든 단원, 아니면 선택된 과목들의 단원)
   const taAvailableUnits = taSubjMode === 'all' || taSelectedSubjs.length === 0
     ? Array.from(new Set(problems.map(p => String(p.세부단원 || '').trim()).filter(Boolean)))
     : Array.from(new Set(taSelectedSubjs.flatMap(subj => UNIT_MAP[subj] || [])));
@@ -762,7 +770,7 @@ function App() {
         </div>
       )}
 
-      {/* ⚡ 타임어택 카테고리 선택 및 플레이 화면 (다중 선택 지원) */}
+      {/* ⚡ 타임어택 카테고리 선택 및 플레이 화면 */}
       {isTimeAttackMode && (
         <div style={{ border: '2px solid #dc3545', padding: '25px', borderRadius: '12px', marginBottom: '30px', background: '#fff', boxShadow: '0 4px 12px rgba(220,53,69,0.15)' }}>
           
@@ -771,121 +779,51 @@ function App() {
               <h3 style={{ margin: '0 0 15px 0', color: '#dc3545', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 ⚡ 타임어택 카테고리 선택
               </h3>
-              <p style={{ fontSize: '13px', color: '#666', marginBottom: '20px' }}>[전체]를 선택하거나, 개별 선택하여 **여러 개를 중복(다중) 선택**할 수 있습니다.</p>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '600px', marginBottom: '25px', textAlign: 'left' }}>
-                
-                {/* 과목 선택 방식 */}
+                {/* 과목/단원/난이도 선택 필터들은 기존과 동일하게 유지 */}
                 <div>
                   <label style={{ display: 'block', fontWeight: 'bold', fontSize: '14px', marginBottom: '8px' }}>📚 과목 범위:</label>
                   <div style={{ display: 'flex', gap: '10px', marginBottom: '8px' }}>
-                    <button 
-                      onClick={() => { setTaSubjMode('all'); setTaSelectedSubjs([]); }}
-                      style={{ padding: '6px 14px', borderRadius: '15px', border: taSubjMode === 'all' ? '2px solid #dc3545' : '1px solid #ccc', background: taSubjMode === 'all' ? '#dc3545' : '#fff', color: taSubjMode === 'all' ? '#fff' : '#333', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' }}
-                    >
-                      전체 과목
-                    </button>
-                    <button 
-                      onClick={() => setTaSubjMode('custom')}
-                      style={{ padding: '6px 14px', borderRadius: '15px', border: taSubjMode === 'custom' ? '2px solid #dc3545' : '1px solid #ccc', background: taSubjMode === 'custom' ? '#dc3545' : '#fff', color: taSubjMode === 'custom' ? '#fff' : '#333', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' }}
-                    >
-                      과목 직접 선택 (중복 가능)
-                    </button>
+                    <button onClick={() => { setTaSubjMode('all'); setTaSelectedSubjs([]); }} style={{ padding: '6px 14px', borderRadius: '15px', border: taSubjMode === 'all' ? '2px solid #dc3545' : '1px solid #ccc', background: taSubjMode === 'all' ? '#dc3545' : '#fff', color: taSubjMode === 'all' ? '#fff' : '#333', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' }}>전체 과목</button>
+                    <button onClick={() => setTaSubjMode('custom')} style={{ padding: '6px 14px', borderRadius: '15px', border: taSubjMode === 'custom' ? '2px solid #dc3545' : '1px solid #ccc', background: taSubjMode === 'custom' ? '#dc3545' : '#fff', color: taSubjMode === 'custom' ? '#fff' : '#333', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' }}>과목 직접 선택 (중복 가능)</button>
                   </div>
-
                   {taSubjMode === 'custom' && (
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', padding: '10px', background: '#f8f9fa', borderRadius: '6px', border: '1px solid #dee2e6' }}>
                       {SUBJECTS.map(subj => {
                         const isChecked = taSelectedSubjs.includes(subj);
-                        return (
-                          <button
-                            key={subj}
-                            onClick={() => toggleTaSubject(subj)}
-                            style={{
-                              padding: '5px 12px',
-                              borderRadius: '15px',
-                              border: isChecked ? '2px solid #007bff' : '1px solid #ccc',
-                              background: isChecked ? '#007bff' : '#fff',
-                              color: isChecked ? '#fff' : '#333',
-                              fontSize: '12px',
-                              cursor: 'pointer',
-                              fontWeight: 'bold'
-                            }}
-                          >
-                            {isChecked ? `✔ ${subj}` : subj}
-                          </button>
-                        );
+                        return <button key={subj} onClick={() => toggleTaSubject(subj)} style={{ padding: '5px 12px', borderRadius: '15px', border: isChecked ? '2px solid #007bff' : '1px solid #ccc', background: isChecked ? '#007bff' : '#fff', color: isChecked ? '#fff' : '#333', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold' }}>{isChecked ? `✔ ${subj}` : subj}</button>;
                       })}
                     </div>
                   )}
                 </div>
 
-                {/* 단원 선택 방식 */}
                 <div>
                   <label style={{ display: 'block', fontWeight: 'bold', fontSize: '14px', marginBottom: '8px' }}>🏷️ 세부단원 범위:</label>
                   <div style={{ display: 'flex', gap: '10px', marginBottom: '8px' }}>
-                    <button 
-                      onClick={() => { setTaUnitMode('all'); setTaSelectedUnits([]); }}
-                      style={{ padding: '6px 14px', borderRadius: '15px', border: taUnitMode === 'all' ? '2px solid #dc3545' : '1px solid #ccc', background: taUnitMode === 'all' ? '#dc3545' : '#fff', color: taUnitMode === 'all' ? '#fff' : '#333', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' }}
-                    >
-                      전체 단원
-                    </button>
-                    <button 
-                      onClick={() => setTaUnitMode('custom')}
-                      style={{ padding: '6px 14px', borderRadius: '15px', border: taUnitMode === 'custom' ? '2px solid #dc3545' : '1px solid #ccc', background: taUnitMode === 'custom' ? '#dc3545' : '#fff', color: taUnitMode === 'custom' ? '#fff' : '#333', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' }}
-                    >
-                      단원 직접 선택 (중복 가능)
-                    </button>
+                    <button onClick={() => { setTaUnitMode('all'); setTaSelectedUnits([]); }} style={{ padding: '6px 14px', borderRadius: '15px', border: taUnitMode === 'all' ? '2px solid #dc3545' : '1px solid #ccc', background: taUnitMode === 'all' ? '#dc3545' : '#fff', color: taUnitMode === 'all' ? '#fff' : '#333', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' }}>전체 단원</button>
+                    <button onClick={() => setTaUnitMode('custom')} style={{ padding: '6px 14px', borderRadius: '15px', border: taUnitMode === 'custom' ? '2px solid #dc3545' : '1px solid #ccc', background: taUnitMode === 'custom' ? '#dc3545' : '#fff', color: taUnitMode === 'custom' ? '#fff' : '#333', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' }}>단원 직접 선택 (중복 가능)</button>
                   </div>
-
                   {taUnitMode === 'custom' && (
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', padding: '10px', background: '#f8f9fa', borderRadius: '6px', border: '1px solid #dee2e6' }}>
                       {taAvailableUnits.map(unit => {
                         const isChecked = taSelectedUnits.includes(unit);
-                        return (
-                          <button
-                            key={unit}
-                            onClick={() => toggleTaUnit(unit)}
-                            style={{
-                              padding: '5px 10px',
-                              borderRadius: '12px',
-                              border: isChecked ? '2px solid #28a745' : '1px solid #ccc',
-                              background: isChecked ? '#28a745' : '#fff',
-                              color: isChecked ? '#fff' : '#333',
-                              fontSize: '11px',
-                              cursor: 'pointer',
-                              fontWeight: 'bold'
-                            }}
-                          >
-                            {isChecked ? `✔ ${unit}` : unit}
-                          </button>
-                        );
+                        return <button key={unit} onClick={() => toggleTaUnit(unit)} style={{ padding: '5px 10px', borderRadius: '12px', border: isChecked ? '2px solid #28a745' : '1px solid #ccc', background: isChecked ? '#28a745' : '#fff', color: isChecked ? '#fff' : '#333', fontSize: '11px', cursor: 'pointer', fontWeight: 'bold' }}>{isChecked ? `✔ ${unit}` : unit}</button>;
                       })}
                     </div>
                   )}
                 </div>
 
-                {/* 난이도 급간 선택 */}
                 <div>
                   <label style={{ display: 'block', fontWeight: 'bold', fontSize: '14px', marginBottom: '8px' }}>📈 난이도 급간:</label>
-                  <select 
-                    value={taGrade} 
-                    onChange={(e) => setTaGrade(e.target.value)}
-                    style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '14px' }}
-                  >
+                  <select value={taGrade} onChange={(e) => setTaGrade(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '14px' }}>
                     <option value="전체">전체 난이도 (모든 급간 무작위)</option>
                     {GRADE_LIST.map(g => <option key={g} value={g}>{g} 급간</option>)}
                   </select>
                 </div>
-
               </div>
 
-              <button 
-                onClick={handleStartActualTimeAttack}
-                style={{ padding: '12px 25px', background: '#dc3545', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer' }}
-              >
-                🚀 타임어택 스피드 측정 시작!
-              </button>
+              <button onClick={handleStartActualTimeAttack} style={{ padding: '12px 25px', background: '#dc3545', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer' }}>🚀 타임어택 스피드 측정 시작!</button>
             </div>
           ) : (
             <div>
@@ -894,95 +832,70 @@ function App() {
                   <span style={{ background: '#dc3545', color: '#fff', padding: '6px 14px', borderRadius: '6px', fontSize: '14px', fontWeight: 'bold' }}>
                     ⚡ 타임어택 진행중 ({taSubjMode === 'all' ? '전체과목' : taSelectedSubjs.join(', ')} / {taUnitMode === 'all' ? '전체단원' : `${taSelectedUnits.length}개단원`} / {taGrade === '전체' ? '전체난이도' : taGrade})
                   </span>
-                  <button 
-                    onClick={() => setTaStep('select')}
-                    style={{ padding: '5px 10px', background: '#6c757d', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '12px', cursor: 'pointer' }}
-                  >
-                    카테고리 재선택
-                  </button>
+                  <button onClick={() => setTaStep('select')} style={{ padding: '5px 10px', background: '#6c757d', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '12px', cursor: 'pointer' }}>카테고리 재선택</button>
                 </div>
-                <span style={{ fontSize: '28px', fontWeight: 'bold', color: '#dc3545' }}>
-                  {taTime.toFixed(1)}초
-                </span>
+                <span style={{ fontSize: '28px', fontWeight: 'bold', color: '#dc3545' }}>{taTime.toFixed(1)}초</span>
               </div>
 
-              <div style={{ display: 'flex', gap: '25px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
-                <div style={{ flex: '1 1 500px', textAlign: 'center', background: '#fafafa', padding: '15px', borderRadius: '8px', border: '1px solid #eee', minHeight: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {taProblem && taProblem.문제이미지 ? (
-                    <img src={taProblem.문제이미지} alt="타임어택 문제" style={{ maxWidth: '100%', height: 'auto', display: 'block', margin: '0 auto', maxHeight: '600px' }} />
+              {/* 타임어택 정답 입력 영역 (이미지 렌더링 삭제 및 풀 위드 레이아웃 적용) */}
+              <div style={{ background: '#f8f9fa', padding: '20px', borderRadius: '8px', border: '1px solid #e9ecef', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div>
+                  <h4 style={{ margin: '0 0 10px 0', color: '#333' }}>✍️ 빠른 정답 입력</h4>
+                  {taProblem && !String(taProblem['객관식 답'] || '').trim() ? (
+                    <input 
+                      type="text" 
+                      placeholder="주관식 정답 입력" 
+                      value={taAnswer}
+                      onChange={(e) => setTaAnswer(e.target.value)}
+                      style={{ padding: '12px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '16px', width: '100%', boxSizing: 'border-box' }}
+                    />
                   ) : (
-                    <p style={{ color: '#999', fontStyle: 'italic' }}>⚠️ 이미지 파일이 없습니다.</p>
-                  )}
-                </div>
-
-                <div style={{ flex: '1 1 300px', background: '#f8f9fa', padding: '20px', borderRadius: '8px', border: '1px solid #e9ecef', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  <div>
-                    <h4 style={{ margin: '0 0 10px 0', color: '#333' }}>✍️ 빠른 정답 입력</h4>
-                    {taProblem && !['1', '2', '3', '4', '5'].includes(String(taProblem.정답 || '').trim()) ? (
-                      <input 
-                        type="text" 
-                        placeholder="주관식 정답 입력" 
-                        value={taAnswer}
-                        onChange={(e) => setTaAnswer(e.target.value)}
-                        style={{ padding: '12px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '16px', width: '100%', boxSizing: 'border-box' }}
-                      />
-                    ) : (
-                      <div style={{ display: 'flex', gap: '10px', justifyContent: 'space-between', marginTop: '10px' }}>
-                        {['1', '2', '3', '4', '5'].map((num) => (
-                          <button
-                            key={num}
-                            onClick={() => setTaAnswer(num)}
-                            style={{
-                              width: '45px',
-                              height: '45px',
-                              borderRadius: '50%',
-                              border: taAnswer === num ? '2px solid #dc3545' : '1px solid #ccc',
-                              background: taAnswer === num ? '#dc3545' : '#fff',
-                              color: taAnswer === num ? '#fff' : '#333',
-                              fontSize: '18px',
-                              fontWeight: 'bold',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center'
-                            }}
-                          >
-                            {toCircled(num)}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {!taSubmitted ? (
-                    <button
-                      onClick={handleCheckTimeAttack}
-                      style={{ padding: '12px', background: '#dc3545', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '16px' }}
-                    >
-                      정답 제출 및 기록 측정
-                    </button>
-                  ) : (
-                    <div style={{ padding: '15px', borderRadius: '6px', background: taCorrect ? '#d4edda' : '#f8d7da', color: taCorrect ? '#155724' : '#721c24', fontWeight: 'bold', display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'center' }}>
-                      <span style={{ fontSize: '18px' }}>
-                        {taCorrect ? `🎉 정답! 기록: ${taTime.toFixed(1)}초` : '❌ 틀렸습니다!'}
-                      </span>
-                      {taCorrect && (
+                    <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', marginTop: '10px' }}>
+                      {['1', '2', '3', '4', '5'].map((num) => (
                         <button
-                          onClick={() => openRankModal('timeattack', Number(taTime.toFixed(1)), `ID: ${taProblem.문제ID}`)}
-                          style={{ padding: '10px', background: '#28a745', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', marginTop: '5px' }}
+                          key={num}
+                          onClick={() => setTaAnswer(num)}
+                          style={{
+                            width: '55px',
+                            height: '55px',
+                            borderRadius: '50%',
+                            border: taAnswer === num ? '2px solid #dc3545' : '1px solid #ccc',
+                            background: taAnswer === num ? '#dc3545' : '#fff',
+                            color: taAnswer === num ? '#fff' : '#333',
+                            fontSize: '20px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
                         >
-                          🏆 타임어택 랭킹 등록하기
+                          {toCircled(num)}
                         </button>
-                      )}
-                      <button
-                        onClick={handleStartActualTimeAttack}
-                        style={{ padding: '8px', background: '#333', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', marginTop: '5px' }}
-                      >
-                        같은 조건으로 다시 도전
-                      </button>
+                      ))}
                     </div>
                   )}
                 </div>
+
+                {!taSubmitted ? (
+                  <button onClick={handleCheckTimeAttack} style={{ padding: '12px', background: '#dc3545', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '16px' }}>
+                    정답 제출 및 기록 측정
+                  </button>
+                ) : (
+                  <div style={{ padding: '15px', borderRadius: '6px', background: taCorrect ? '#d4edda' : '#f8d7da', color: taCorrect ? '#155724' : '#721c24', fontWeight: 'bold', display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'center' }}>
+                    <span style={{ fontSize: '18px' }}>
+                      {taCorrect ? `🎉 정답! 기록: ${taTime.toFixed(1)}초` : '❌ 틀렸습니다!'}
+                    </span>
+                    {taCorrect && (
+                      <button onClick={() => openRankModal('timeattack', Number(taTime.toFixed(1)), `ID: ${taProblem.문제ID}`)} style={{ padding: '10px', background: '#28a745', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', marginTop: '5px' }}>
+                        🏆 타임어택 랭킹 등록하기
+                      </button>
+                    )}
+                    <button onClick={handleStartActualTimeAttack} style={{ padding: '8px', background: '#333', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', marginTop: '5px' }}>
+                      같은 조건으로 다시 도전
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -990,12 +903,9 @@ function App() {
         </div>
       )}
 
-      {/* 🏆 명예의 전당 */}
+      {/* 🏆 명예의 전당 (기존과 동일하게 유지) */}
       <div style={{ background: '#fff', padding: '25px', borderRadius: '12px', marginBottom: '35px', boxShadow: '0 4px 12px rgba(0,0,0,0.06)', border: '1px solid #e9ecef' }}>
-        <h2 style={{ margin: '0 0 15px 0', color: '#333', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          👑 세광고 명예의 전당 (랭킹 시스템)
-        </h2>
-        
+        <h2 style={{ margin: '0 0 15px 0', color: '#333', display: 'flex', alignItems: 'center', gap: '8px' }}>👑 세광고 명예의 전당 (랭킹 시스템)</h2>
         <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap' }}>
           
           <div style={{ flex: 1, minWidth: '300px', background: '#f8f9fa', padding: '15px', borderRadius: '8px', border: '1px solid #e9ecef' }}>
@@ -1014,24 +924,12 @@ function App() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rankings
-                    .filter(r => r.모드.includes('랜덤'))
-                    .sort((a, b) => Number(a.기록) - Number(b.기록))
-                    .slice(0, 5)
-                    .map((item, idx) => (
+                  {rankings.filter(r => r.모드.includes('랜덤')).sort((a, b) => Number(a.기록) - Number(b.기록)).slice(0, 5).map((item, idx) => (
                       <tr key={idx} style={{ borderBottom: '1px solid #dee2e6' }}>
                         <td style={{ padding: '6px', fontWeight: 'bold' }}>{idx === 0 ? '🥇 1위' : idx === 1 ? '🥈 2위' : idx === 2 ? '🥉 3위' : `${idx + 1}위`}</td>
-                        
                         {editingRank === item.rowIndex ? (
                           <>
-                            <td style={{ padding: '4px' }}>
-                              <input 
-                                type="text" 
-                                value={editRankName} 
-                                onChange={(e) => setEditRankName(e.target.value)}
-                                style={{ width: '100px', padding: '3px' }}
-                              />
-                            </td>
+                            <td style={{ padding: '4px' }}><input type="text" value={editRankName} onChange={(e) => setEditRankName(e.target.value)} style={{ width: '100px', padding: '3px' }}/></td>
                             <td style={{ padding: '4px' }}>{item.모드}</td>
                             <td style={{ padding: '4px', color: '#888' }}>{Math.floor(item.기록 / 60)}분 {item.기록 % 60}초</td>
                             <td style={{ padding: '4px', textAlign: 'center' }}>
@@ -1075,24 +973,12 @@ function App() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rankings
-                    .filter(r => r.모드 === '타임어택')
-                    .sort((a, b) => Number(a.기록) - Number(b.기록))
-                    .slice(0, 5)
-                    .map((item, idx) => (
+                  {rankings.filter(r => r.모드 === '타임어택').sort((a, b) => Number(a.기록) - Number(b.기록)).slice(0, 5).map((item, idx) => (
                       <tr key={idx} style={{ borderBottom: '1px solid #dee2e6' }}>
                         <td style={{ padding: '6px', fontWeight: 'bold' }}>{idx === 0 ? '🥇 1위' : idx === 1 ? '🥈 2위' : idx === 2 ? '🥉 3위' : `${idx + 1}위`}</td>
-                        
                         {editingRank === item.rowIndex ? (
                           <>
-                            <td style={{ padding: '4px' }}>
-                              <input 
-                                type="text" 
-                                value={editRankName} 
-                                onChange={(e) => setEditRankName(e.target.value)}
-                                style={{ width: '100px', padding: '3px' }}
-                              />
-                            </td>
+                            <td style={{ padding: '4px' }}><input type="text" value={editRankName} onChange={(e) => setEditRankName(e.target.value)} style={{ width: '100px', padding: '3px' }}/></td>
                             <td style={{ padding: '4px' }}>{item.세부정보.replace('ID: ', '')}</td>
                             <td style={{ padding: '4px', color: '#888' }}>{item.기록}초</td>
                             <td style={{ padding: '4px', textAlign: 'center' }}>
@@ -1119,7 +1005,6 @@ function App() {
               </table>
             )}
           </div>
-
         </div>
       </div>
 
@@ -1200,7 +1085,7 @@ function App() {
               <div style={{ flex: 1 }}>
                 <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px', fontSize: '13px' }}>정답 설정:</label>
                 {formType === '객관식' ? (
-                  <select value={formAns} onChange={(e) => setFormAns(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}>
+                  <select value={formObjAns} onChange={(e) => setFormObjAns(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}>
                     <option value="1">1번 (①)</option>
                     <option value="2">2번 (②)</option>
                     <option value="3">3번 (③)</option>
@@ -1210,8 +1095,8 @@ function App() {
                 ) : (
                   <input 
                     type="text" 
-                    value={formAns} 
-                    onChange={(e) => setFormAns(e.target.value)}
+                    value={formSubjAns} 
+                    onChange={(e) => setFormSubjAns(e.target.value)}
                     placeholder="주관식 정답 (예: 15)"
                     style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
                   />
@@ -1220,28 +1105,18 @@ function App() {
             </div>
 
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button 
-                type="submit" 
-                disabled={processing}
-                style={{ flex: 1, padding: '10px', background: processing ? '#6c757d' : '#007bff', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}
-              >
+              <button type="submit" disabled={processing} style={{ flex: 1, padding: '10px', background: processing ? '#6c757d' : '#007bff', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>
                 {processing ? '처리 중...' : (isEditing ? '문제 수정하기' : '구글 시트에 문제 등록')}
               </button>
               {isEditing && (
-                <button 
-                  type="button" 
-                  onClick={resetForm}
-                  style={{ padding: '10px 20px', background: '#6c757d', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}
-                >
-                  취소
-                </button>
+                <button type="button" onClick={resetForm} style={{ padding: '10px 20px', background: '#6c757d', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>취소</button>
               )}
             </div>
           </form>
         </div>
       )}
       
-      {/* 일반 문제 리스트 영역 */}
+      {/* 일반 문제 리스트 영역 (이미지 렌더링 삭제 및 풀 위드 폼 적용) */}
       {!isTimeAttackMode && (
         loading ? (
           <p style={{ textAlign: 'center' }}>기출문제 데이터를 불러오는 중입니다...</p>
@@ -1252,8 +1127,12 @@ function App() {
             {displayedProblems.map((prob, index) => {
               const selected = userAnswers[index];
               const isSubmitted = showResults[index];
-              const correctAns = String(prob.정답 || '').trim();
-              const isSubjective = !['1', '2', '3', '4', '5'].includes(correctAns);
+              
+              const objAns = String(prob['객관식 답'] || '').trim();
+              const subjAns = String(prob['주관식 답'] || '').trim();
+              const isSubjective = !objAns;
+              const correctAns = isSubjective ? subjAns : objAns;
+              
               const isCorrect = isSubjective 
                 ? String(selected || '').trim().toLowerCase() === correctAns.toLowerCase()
                 : selected === correctAns;
@@ -1266,134 +1145,71 @@ function App() {
                   
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', borderBottom: '1px solid #eee', paddingBottom: '10px' }}>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                      <span style={{ background: '#007bff', color: '#fff', padding: '5px 12px', borderRadius: '5px', fontSize: '13px', fontWeight: 'bold' }}>
-                        {prob.과목 || '과목 미지정'}
-                      </span>
-                      {prob.세부단원 && (
-                        <span style={{ background: '#e2e6ea', color: '#333', padding: '5px 10px', borderRadius: '5px', fontSize: '12px', fontWeight: 'bold' }}>
-                          {prob.세부단원}
-                        </span>
-                      )}
-                      
-                      {/* 콤마 다중 태그 렌더링 */}
-                      {tagList.map((t, tIdx) => (
-                        <span key={tIdx} style={{ background: '#6f42c1', color: '#fff', padding: '5px 10px', borderRadius: '5px', fontSize: '12px', fontWeight: 'bold' }}>
-                          #{t}
-                        </span>
-                      ))}
+                      <span style={{ background: '#007bff', color: '#fff', padding: '5px 12px', borderRadius: '5px', fontSize: '13px', fontWeight: 'bold' }}>{prob.과목 || '과목 미지정'}</span>
+                      {prob.세부단원 && <span style={{ background: '#e2e6ea', color: '#333', padding: '5px 10px', borderRadius: '5px', fontSize: '12px', fontWeight: 'bold' }}>{prob.세부단원}</span>}
+                      {tagList.map((t, tIdx) => <span key={tIdx} style={{ background: '#6f42c1', color: '#fff', padding: '5px 10px', borderRadius: '5px', fontSize: '12px', fontWeight: 'bold' }}>#{t}</span>)}
                     </div>
                     
                     <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                      {/* 오답률 및 급간 뱃지 (문제 ID 왼쪽) */}
                       {prob.오답률 !== undefined && prob.오답률 !== '' && (
-                        <span style={{ background: gradeInfo.color, color: '#fff', padding: '5px 10px', borderRadius: '5px', fontSize: '12px', fontWeight: 'bold' }}>
-                          급간: {gradeInfo.name} (오답률 {prob.오답률}%)
-                        </span>
+                        <span style={{ background: gradeInfo.color, color: '#fff', padding: '5px 10px', borderRadius: '5px', fontSize: '12px', fontWeight: 'bold' }}>급간: {gradeInfo.name} (오답률 {prob.오답률}%)</span>
                       )}
-
-                      <span style={{ color: '#555', fontSize: '14px', fontWeight: 'bold' }}>
-                        문제 ID: {prob.문제ID}
-                      </span>
-                      
-                      <button 
-                        onClick={() => { setFeedbackTargetId(prob.문제ID); setFeedbackModalOpen(true); }}
-                        style={{ padding: '4px 10px', background: '#6c757d', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}
-                      >
-                        💬 오류 신고·피드백
-                      </button>
-
+                      <span style={{ color: '#555', fontSize: '14px', fontWeight: 'bold' }}>문제 ID: {prob.문제ID}</span>
+                      <button onClick={() => { setFeedbackTargetId(prob.문제ID); setFeedbackModalOpen(true); }} style={{ padding: '4px 10px', background: '#6c757d', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>💬 오류 신고·피드백</button>
                       {isAdmin && (
                         <div style={{ display: 'flex', gap: '5px' }}>
-                          <button 
-                            onClick={() => handleStartEdit(prob)}
-                            style={{ padding: '4px 10px', background: '#ffc107', color: '#000', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}
-                          >
-                            수정
-                          </button>
-                          <button 
-                            onClick={() => handleDelete(prob.문제ID)}
-                            style={{ padding: '4px 10px', background: '#dc3545', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}
-                          >
-                            삭제
-                          </button>
+                          <button onClick={() => handleStartEdit(prob)} style={{ padding: '4px 10px', background: '#ffc107', color: '#000', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>수정</button>
+                          <button onClick={() => handleDelete(prob.문제ID)} style={{ padding: '4px 10px', background: '#dc3545', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>삭제</button>
                         </div>
                       )}
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', gap: '25px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
-                    
-                    <div style={{ flex: '1 1 500px', textAlign: 'center', background: '#fafafa', padding: '15px', borderRadius: '8px', border: '1px solid #eee', minHeight: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {prob.문제이미지 ? (
-                        <img src={prob.문제이미지} alt="기출문제" style={{ maxWidth: '100%', height: 'auto', display: 'block', margin: '0 auto', maxHeight: '600px' }} />
+                  <div style={{ background: '#f8f9fa', padding: '20px', borderRadius: '8px', border: '1px solid #e9ecef', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div>
+                      <h4 style={{ margin: '0 0 10px 0', color: '#333' }}>✍️ 답안 작성</h4>
+                      {!isSubjective ? (
+                        <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', marginTop: '10px' }}>
+                          {['1', '2', '3', '4', '5'].map((num) => (
+                            <button
+                              key={num}
+                              onClick={() => handleSelect(index, num)}
+                              style={{
+                                width: '55px', height: '55px', borderRadius: '50%',
+                                border: selected === num ? '2px solid #007bff' : '1px solid #ccc',
+                                background: selected === num ? '#007bff' : '#fff',
+                                color: selected === num ? '#fff' : '#333',
+                                fontSize: '20px', fontWeight: 'bold', cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s'
+                              }}
+                            >
+                              {toCircled(num)}
+                            </button>
+                          ))}
+                        </div>
                       ) : (
-                        <p style={{ color: '#999', fontStyle: 'italic' }}>⚠️ '세광고_문제이미지' 폴더에 일치하는 이미지 파일({prob.문제ID}.png 등)이 없습니다.</p>
-                      )}
-                    </div>
-
-                    <div style={{ flex: '1 1 300px', background: '#f8f9fa', padding: '20px', borderRadius: '8px', border: '1px solid #e9ecef', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                      
-                      <div>
-                        <h4 style={{ margin: '0 0 10px 0', color: '#333' }}>✍️ 답안 작성</h4>
-                        {!isSubjective ? (
-                          <div style={{ display: 'flex', gap: '10px', justifyContent: 'space-between', marginTop: '10px' }}>
-                            {['1', '2', '3', '4', '5'].map((num) => (
-                              <button
-                                key={num}
-                                onClick={() => handleSelect(index, num)}
-                                style={{
-                                  width: '45px',
-                                  height: '45px',
-                                  borderRadius: '50%',
-                                  border: selected === num ? '2px solid #007bff' : '1px solid #ccc',
-                                  background: selected === num ? '#007bff' : '#fff',
-                                  color: selected === num ? '#fff' : '#333',
-                                  fontSize: '18px',
-                                  fontWeight: 'bold',
-                                  cursor: 'pointer',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  transition: 'all 0.2s'
-                                }}
-                              >
-                                {toCircled(num)}
-                              </button>
-                            ))}
-                          </div>
-                        ) : (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
-                            <input 
-                              type="text" 
-                              placeholder="주관식 정답을 입력하세요" 
-                              value={selected || ''}
-                              onChange={(e) => handleSelect(index, e.target.value)}
-                              style={{ padding: '12px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '16px', width: '100%', boxSizing: 'border-box' }}
-                            />
-                          </div>
-                        )}
-                      </div>
-
-                      <button
-                        onClick={() => handleCheck(index)}
-                        style={{ padding: '12px', background: '#28a745', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '16px', width: '100%' }}
-                      >
-                        정답 확인
-                      </button>
-
-                      {isSubmitted && (
-                        <div style={{ padding: '15px', borderRadius: '6px', background: isCorrect ? '#d4edda' : '#f8d7da', color: isCorrect ? '#155724' : '#721c24', fontWeight: 'bold', display: 'flex', flexDirection: 'column', gap: '5px', textAlign: 'center' }}>
-                          <span style={{ fontSize: '18px' }}>
-                            {isCorrect ? '🎉 정답입니다!' : '❌ 틀렸습니다.'}
-                          </span>
-                          <span style={{ fontSize: '14px', marginTop: '5px' }}>
-                            정답: <strong style={{ fontSize: '20px' }}>{isSubjective ? correctAns : toCircled(correctAns)}</strong>
-                          </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
+                          <input 
+                            type="text" 
+                            placeholder="주관식 정답을 입력하세요" 
+                            value={selected || ''}
+                            onChange={(e) => handleSelect(index, e.target.value)}
+                            style={{ padding: '12px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '16px', width: '100%', boxSizing: 'border-box' }}
+                          />
                         </div>
                       )}
-
                     </div>
 
+                    <button onClick={() => handleCheck(index)} style={{ padding: '12px', background: '#28a745', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '16px', width: '100%' }}>정답 확인</button>
+
+                    {isSubmitted && (
+                      <div style={{ padding: '15px', borderRadius: '6px', background: isCorrect ? '#d4edda' : '#f8d7da', color: isCorrect ? '#155724' : '#721c24', fontWeight: 'bold', display: 'flex', flexDirection: 'column', gap: '5px', textAlign: 'center' }}>
+                        <span style={{ fontSize: '18px' }}>{isCorrect ? '🎉 정답입니다!' : '❌ 틀렸습니다.'}</span>
+                        <span style={{ fontSize: '14px', marginTop: '5px' }}>
+                          정답: <strong style={{ fontSize: '20px' }}>{isSubjective ? correctAns : toCircled(correctAns)}</strong>
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                 </div>
@@ -1403,65 +1219,30 @@ function App() {
         )
       )}
 
-      {/* 랭킹 등록 모달 */}
+      {/* 랭킹 등록 모달 및 피드백 모달 */}
       {rankModalOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ background: '#fff', padding: '25px', borderRadius: '10px', width: '400px', maxWidth: '90%', boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}>
             <h3 style={{ margin: '0 0 10px 0', color: '#333' }}>🏆 명예의 전당 등록</h3>
-            <p style={{ fontSize: '13px', color: '#666', marginBottom: '15px' }}>
-              기록: <strong style={{ color: '#d9534f' }}>{rankModeType === 'set' ? `${Math.floor(rankScoreValue / 60)}분 ${rankScoreValue % 60}초` : `${rankScoreValue}초`}</strong>
-            </p>
+            <p style={{ fontSize: '13px', color: '#666', marginBottom: '15px' }}>기록: <strong style={{ color: '#d9534f' }}>{rankModeType === 'set' ? `${Math.floor(rankScoreValue / 60)}분 ${rankScoreValue % 60}초` : `${rankScoreValue}초`}</strong></p>
             <label style={{ display: 'block', fontWeight: 'bold', fontSize: '13px', marginBottom: '5px' }}>학번과 이름 입력:</label>
-            <input 
-              type="text" 
-              placeholder="예: 30105 홍길동" 
-              value={studentNameInput}
-              onChange={(e) => setStudentNameInput(e.target.value)}
-              style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box', marginBottom: '15px', fontSize: '14px' }}
-            />
+            <input type="text" placeholder="예: 30105 홍길동" value={studentNameInput} onChange={(e) => setStudentNameInput(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box', marginBottom: '15px', fontSize: '14px' }}/>
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-              <button 
-                onClick={() => setRankModalOpen(false)}
-                style={{ padding: '8px 14px', background: '#6c757d', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-              >
-                취소
-              </button>
-              <button 
-                onClick={submitRankingData}
-                style={{ padding: '8px 14px', background: '#28a745', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-              >
-                등록하기
-              </button>
+              <button onClick={() => setRankModalOpen(false)} style={{ padding: '8px 14px', background: '#6c757d', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>취소</button>
+              <button onClick={submitRankingData} style={{ padding: '8px 14px', background: '#28a745', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>등록하기</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 피드백 모달 */}
       {feedbackModalOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ background: '#fff', padding: '25px', borderRadius: '10px', width: '400px', maxWidth: '90%', boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}>
             <h3 style={{ margin: '0 0 10px 0', color: '#333' }}>💬 문제 ID [{feedbackTargetId}] 피드백</h3>
-            <textarea 
-              rows="4" 
-              value={feedbackText} 
-              onChange={(e) => setFeedbackText(e.target.value)}
-              placeholder="오탈자나 오류를 적어주세요."
-              style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box', marginBottom: '15px', fontSize: '14px' }}
-            />
+            <textarea rows="4" value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)} placeholder="오탈자나 오류를 적어주세요." style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box', marginBottom: '15px', fontSize: '14px' }}/>
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-              <button 
-                onClick={() => setFeedbackModalOpen(false)}
-                style={{ padding: '8px 14px', background: '#6c757d', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-              >
-                취소
-              </button>
-              <button 
-                onClick={sendFeedback}
-                style={{ padding: '8px 14px', background: '#007bff', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-              >
-                보내기
-              </button>
+              <button onClick={() => setFeedbackModalOpen(false)} style={{ padding: '8px 14px', background: '#6c757d', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>취소</button>
+              <button onClick={sendFeedback} style={{ padding: '8px 14px', background: '#007bff', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>보내기</button>
             </div>
           </div>
         </div>

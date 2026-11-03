@@ -72,8 +72,6 @@ function App() {
   // Apps Script 주소
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbzEMHYAPF2V1tzJFzeqTXY4-ce5C_w20rxOz5mqVIpTkcM-9kEehg5etgh3X33a35rxRQ/exec';
 
-  // 💡 구글 시트 데이터를 기반으로 과목과 단원 목록을 동적으로 자동 생성합니다!
-  // (미적분은 기본값에서 삭제, 추후 '대수' 등으로 입력하면 알아서 반영됨)
   const derivedSubjects = Array.from(new Set(problems.map(p => String(p.과목 || '').trim()).filter(Boolean)));
   const SUBJECTS = derivedSubjects.length > 0 ? derivedSubjects : ['수학I', '수학II', '확률과 통계'];
 
@@ -88,7 +86,6 @@ function App() {
     }
   });
 
-  // 💡 난이도 급간 및 오답률 설명 추가
   const GRADE_LIST = [
     { name: '신', desc: '85% 이상' },
     { name: '초인', desc: '70~84%' },
@@ -607,7 +604,7 @@ function App() {
           )}
         </div>
 
-        {/* 💡 난이도 등급(급간) 필터 - 오답률 범위 표시 추가 */}
+        {/* 난이도 등급(급간) 필터 */}
         <div style={{ width: '100%' }}>
           <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '8px', color: '#444' }}>📈 난이도 급간 선택 (오답률 기준):</div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-start' }}>
@@ -827,7 +824,6 @@ function App() {
                   )}
                 </div>
 
-                {/* 💡 타임어택 선택 창에도 오답률 설명 추가 */}
                 <div>
                   <label style={{ display: 'block', fontWeight: 'bold', fontSize: '14px', marginBottom: '8px' }}>📈 난이도 급간:</label>
                   <select value={taGrade} onChange={(e) => setTaGrade(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '14px' }}>
@@ -854,8 +850,9 @@ function App() {
               <div style={{ display: 'flex', gap: '25px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
                 
                 <div style={{ flex: '1 1 500px', textAlign: 'center', background: '#fafafa', padding: '15px', borderRadius: '8px', border: '1px solid #eee', minHeight: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+                  {/* 💡 한글 경로 인코딩 및 공백 제거 적용 완료 */}
                   <img 
-                    src={`/세광고_문제이미지/${taProblem.문제ID}.png`} 
+                    src={encodeURI(`/세광고_문제이미지/${String(taProblem.문제ID).trim()}.png`)} 
                     alt="타임어택 문제" 
                     style={{ maxWidth: '100%', height: 'auto', display: 'block', margin: '0 auto', maxHeight: '600px' }} 
                     onError={(e) => {
@@ -1039,7 +1036,7 @@ function App() {
         </div>
       </div>
 
-      {/* 💡 관리자 등록 폼 - 과목 및 세부단원을 자유롭게 텍스트로 입력할 수 있는 Datalist 기능 적용 */}
+      {/* 관리자 등록 폼 */}
       {isAdmin && (
         <div style={{ background: '#e9ecef', padding: '20px', borderRadius: '8px', marginBottom: '30px', border: '1px solid #ced4da' }}>
           <h3>{isEditing ? `✏️ 문제 수정 (ID: ${customId})` : '➕ [선생님 전용] 신규 기출문제 등록'}</h3>
@@ -1210,8 +1207,9 @@ function App() {
                   <div style={{ display: 'flex', gap: '25px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
                     
                     <div style={{ flex: '1 1 500px', textAlign: 'center', background: '#fafafa', padding: '15px', borderRadius: '8px', border: '1px solid #eee', minHeight: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+                      {/* 💡 한글 경로 인코딩 및 공백 제거 적용 완료 */}
                       <img 
-                        src={`/세광고_문제이미지/${prob.문제ID}.png`} 
+                        src={encodeURI(`/세광고_문제이미지/${String(prob.문제ID).trim()}.png`)} 
                         alt="기출문제" 
                         style={{ maxWidth: '100%', height: 'auto', display: 'block', margin: '0 auto', maxHeight: '600px' }} 
                         onError={(e) => {

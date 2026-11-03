@@ -17,7 +17,7 @@ function App() {
   const [selectedTags, setSelectedTags] = useState([]);
   const [selectedGrades, setSelectedGrades] = useState([]);
   
-  // 💡 페이지네이션 상태 추가 및 한 페이지당 문제 수 변경 (10 -> 5)
+  // 💡 페이지네이션 상태 추가 및 한 페이지당 문제 수 5개
   const [currentPage, setCurrentPage] = useState(1);
   const problemsPerPage = 5; 
   
@@ -861,8 +861,9 @@ function App() {
               <div style={{ display: 'flex', gap: '25px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
                 
                 <div style={{ flex: '1 1 500px', textAlign: 'center', background: '#fafafa', padding: '15px', borderRadius: '8px', border: '1px solid #eee', minHeight: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+                  {/* 💡 경로를 원래 선생님 폴더 이름으로 복구했습니다! */}
                   <img 
-                    src={encodeURI(`/images/${String(taProblem.문제ID).trim()}.png`)} 
+                    src={encodeURI(`/세광고_문제이미지/${String(taProblem.문제ID).trim()}.png`)} 
                     alt="타임어택 문제" 
                     style={{ maxWidth: '100%', height: 'auto', display: 'block', margin: '0 auto', maxHeight: '600px' }} 
                     onError={(e) => {
@@ -871,7 +872,7 @@ function App() {
                     }}
                   />
                   <p style={{ color: '#999', fontStyle: 'italic', display: 'none', margin: 0 }}>
-                    ⚠️ 'images' 폴더에 일치하는 이미지 파일({taProblem.문제ID}.png)이 없습니다.
+                    ⚠️ '세광고_문제이미지' 폴더에 일치하는 이미지 파일({taProblem.문제ID}.png)이 없습니다.
                   </p>
                 </div>
 
@@ -1221,8 +1222,9 @@ function App() {
                   <div style={{ display: 'flex', gap: '25px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
                     
                     <div style={{ flex: '1 1 500px', textAlign: 'center', background: '#fafafa', padding: '15px', borderRadius: '8px', border: '1px solid #eee', minHeight: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+                      {/* 💡 경로를 원래 선생님 폴더 이름으로 복구했습니다! */}
                       <img 
-                        src={encodeURI(`/images/${String(prob.문제ID).trim()}.png`)} 
+                        src={encodeURI(`/세광고_문제이미지/${String(prob.문제ID).trim()}.png`)} 
                         alt="기출문제" 
                         style={{ maxWidth: '100%', height: 'auto', display: 'block', margin: '0 auto', maxHeight: '600px' }} 
                         onError={(e) => {
@@ -1231,7 +1233,7 @@ function App() {
                         }}
                       />
                       <p style={{ color: '#999', fontStyle: 'italic', display: 'none', margin: 0 }}>
-                        ⚠️ 'images' 폴더에 일치하는 이미지 파일({prob.문제ID}.png)이 없습니다.
+                        ⚠️ '세광고_문제이미지' 폴더에 일치하는 이미지 파일({prob.문제ID}.png)이 없습니다.
                       </p>
                     </div>
 

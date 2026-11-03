@@ -55,12 +55,12 @@ function App() {
   
   const [customId, setCustomId] = useState('');
   const [formSub, setFormSub] = useState('수학I');
-  const [formUnit, setFormUnit] = useState('지수와 로그');
+  const [formUnit, setFormUnit] = useState('');
   const [formTag, setFormTag] = useState('');
   const [formErrorRate, setFormErrorRate] = useState('');
   const [formType, setFormType] = useState('객관식');
-  const [formObjAns, setFormObjAns] = useState('1'); // 객관식 답
-  const [formSubjAns, setFormSubjAns] = useState(''); // 주관식 답
+  const [formObjAns, setFormObjAns] = useState('1'); 
+  const [formSubjAns, setFormSubjAns] = useState(''); 
   const [isEditing, setIsEditing] = useState(false);
   const [processing, setProcessing] = useState(false);
 
@@ -69,16 +69,33 @@ function App() {
   const [feedbackTargetId, setFeedbackTargetId] = useState('');
   const [feedbackText, setFeedbackText] = useState('');
 
-  // Apps Script 주소를 확인 후 입력하세요
+  // Apps Script 주소
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbzEMHYAPF2V1tzJFzeqTXY4-ce5C_w20rxOz5mqVIpTkcM-9kEehg5etgh3X33a35rxRQ/exec';
 
-  const SUBJECTS = ['수학I', '수학II', '미적분', '확률과 통계'];
-  const UNIT_MAP = {
-    '수학I': ['지수와 로그', '삼각함수', '수열'],
-    '수학II': ['함수의 극한과 연속', '미분', '적분'],
-    '미적분': ['수열의 극한', '미분법', '적분법'],
-    '확률과 통계': ['경우의 수', '확률', '통계']
-  };
+  // 💡 구글 시트 데이터를 기반으로 과목과 단원 목록을 동적으로 자동 생성합니다!
+  // (미적분은 기본값에서 삭제, 추후 '대수' 등으로 입력하면 알아서 반영됨)
+  const derivedSubjects = Array.from(new Set(problems.map(p => String(p.과목 || '').trim()).filter(Boolean)));
+  const SUBJECTS = derivedSubjects.length > 0 ? derivedSubjects : ['수학I', '수학II', '확률과 통계'];
+
+  const UNIT_MAP = {};
+  SUBJECTS.forEach(s => UNIT_MAP[s] = []);
+  problems.forEach(p => {
+    const s = String(p.과목 || '').trim();
+    const u = String(p.세부단원 || '').trim();
+    if (s && u) {
+      if (!UNIT_MAP[s]) UNIT_MAP[s] = [];
+      if (!UNIT_MAP[s].includes(u)) UNIT_MAP[s].push(u);
+    }
+  });
+
+  // 💡 난이도 급간 및 오답률 설명 추가
+  const GRADE_LIST = [
+    { name: '신', desc: '85% 이상' },
+    { name: '초인', desc: '70~84%' },
+    { name: '고수', desc: '50~69%' },
+    { name: '도전', desc: '30~49%' },
+    { name: '초보', desc: '30% 미만' }
+  ];
 
   const getDifficultyGrade = (rate) => {
     const r = Number(rate);
@@ -89,8 +106,6 @@ function App() {
     if (r >= 30) return { name: '도전', color: '#17a2b8' };
     return { name: '초보', color: '#28a745' };
   };
-
-  const GRADE_LIST = ['신', '초인', '고수', '도전', '초보'];
 
   useEffect(() => {
     fetchData();
@@ -421,8 +436,6 @@ function App() {
     formData.append('세부단원', formUnit);
     formData.append('태그', formTag);
     formData.append('오답률', formErrorRate);
-    
-    // 객관식, 주관식 분리 전송
     formData.append('객관식 답', formType === '객관식' ? formObjAns : '');
     formData.append('주관식 답', formType === '주관식' ? formSubjAns : '');
 
@@ -594,16 +607,16 @@ function App() {
           )}
         </div>
 
-        {/* 난이도 등급(급간) 필터 */}
+        {/* 💡 난이도 등급(급간) 필터 - 오답률 범위 표시 추가 */}
         <div style={{ width: '100%' }}>
           <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '8px', color: '#444' }}>📈 난이도 급간 선택 (오답률 기준):</div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-start' }}>
-            {GRADE_LIST.map((grade) => {
-              const isSelected = selectedGrades.includes(grade);
+            {GRADE_LIST.map((gradeObj) => {
+              const isSelected = selectedGrades.includes(gradeObj.name);
               return (
                 <button
-                  key={grade}
-                  onClick={() => toggleGradeFilter(grade)}
+                  key={gradeObj.name}
+                  onClick={() => toggleGradeFilter(gradeObj.name)}
                   style={{
                     padding: '6px 14px',
                     borderRadius: '20px',
@@ -615,13 +628,14 @@ function App() {
                     fontSize: '13px'
                   }}
                 >
-                  {isSelected ? `✔ ${grade}` : grade}
+                  {isSelected ? `✔ ${gradeObj.name} (${gradeObj.desc})` : `${gradeObj.name} (${gradeObj.desc})`}
                 </button>
               );
             })}
           </div>
         </div>
 
+        {/* 과목 선택 */}
         <div style={{ width: '100%' }}>
           <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '8px', color: '#444' }}>📚 과목 선택 (다중 선택):</div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-start' }}>
@@ -813,11 +827,12 @@ function App() {
                   )}
                 </div>
 
+                {/* 💡 타임어택 선택 창에도 오답률 설명 추가 */}
                 <div>
                   <label style={{ display: 'block', fontWeight: 'bold', fontSize: '14px', marginBottom: '8px' }}>📈 난이도 급간:</label>
                   <select value={taGrade} onChange={(e) => setTaGrade(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '14px' }}>
                     <option value="전체">전체 난이도 (모든 급간 무작위)</option>
-                    {GRADE_LIST.map(g => <option key={g} value={g}>{g} 급간</option>)}
+                    {GRADE_LIST.map(g => <option key={g.name} value={g.name}>{g.name} 급간 ({g.desc})</option>)}
                   </select>
                 </div>
               </div>
@@ -836,7 +851,6 @@ function App() {
                 <span style={{ fontSize: '28px', fontWeight: 'bold', color: '#dc3545' }}>{taTime.toFixed(1)}초</span>
               </div>
 
-              {/* 타임어택 정답 입력 영역 */}
               <div style={{ display: 'flex', gap: '25px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
                 
                 <div style={{ flex: '1 1 500px', textAlign: 'center', background: '#fafafa', padding: '15px', borderRadius: '8px', border: '1px solid #eee', minHeight: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
@@ -1025,7 +1039,7 @@ function App() {
         </div>
       </div>
 
-      {/* 관리자 등록 폼 */}
+      {/* 💡 관리자 등록 폼 - 과목 및 세부단원을 자유롭게 텍스트로 입력할 수 있는 Datalist 기능 적용 */}
       {isAdmin && (
         <div style={{ background: '#e9ecef', padding: '20px', borderRadius: '8px', marginBottom: '30px', border: '1px solid #ced4da' }}>
           <h3>{isEditing ? `✏️ 문제 수정 (ID: ${customId})` : '➕ [선생님 전용] 신규 기출문제 등록'}</h3>
@@ -1042,29 +1056,40 @@ function App() {
                 />
               </div>
               <div style={{ flex: 1 }}>
-                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px', fontSize: '13px' }}>과목:</label>
-                <select value={formSub} onChange={(e) => {
-                  const sub = e.target.value;
-                  setFormSub(sub);
-                  if (UNIT_MAP[sub] && UNIT_MAP[sub].length > 0) {
-                    setFormUnit(UNIT_MAP[sub][0]);
-                  }
-                }} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}>
-                  {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
+                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px', fontSize: '13px' }}>과목 (선택 또는 직접 입력):</label>
+                <input 
+                  list="subject-options"
+                  value={formSub} 
+                  onChange={(e) => {
+                    const sub = e.target.value;
+                    setFormSub(sub);
+                    if (UNIT_MAP[sub] && UNIT_MAP[sub].length > 0 && !formUnit) {
+                      setFormUnit(UNIT_MAP[sub][0]);
+                    }
+                  }} 
+                  placeholder="예: 대수, 미적분I"
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                />
+                <datalist id="subject-options">
+                  {SUBJECTS.map(s => <option key={s} value={s} />)}
+                </datalist>
               </div>
             </div>
 
             <div style={{ display: 'flex', gap: '15px' }}>
               <div style={{ flex: 1 }}>
-                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px', fontSize: '13px' }}>세부단원:</label>
+                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px', fontSize: '13px' }}>세부단원 (선택 또는 직접 입력):</label>
                 <input 
+                  list="unit-options"
                   type="text" 
                   value={formUnit} 
                   onChange={(e) => setFormUnit(e.target.value)}
                   placeholder="예: 지수와 로그"
                   style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
                 />
+                <datalist id="unit-options">
+                  {(UNIT_MAP[formSub] || []).map(u => <option key={u} value={u} />)}
+                </datalist>
               </div>
               <div style={{ flex: 1 }}>
                 <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px', fontSize: '13px' }}>태그 (콤마로 구분, 예: 킬러문항, 빈출):</label>

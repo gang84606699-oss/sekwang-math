@@ -17,6 +17,10 @@ function App() {
   const [selectedTags, setSelectedTags] = useState([]);
   const [selectedGrades, setSelectedGrades] = useState([]);
   
+  // 💡 페이지네이션(Pagination) 상태 추가
+  const [currentPage, setCurrentPage] = useState(1);
+  const problemsPerPage = 10; // 한 페이지당 보여줄 문제 수
+  
   // 랜덤 모드 & 시간 측정 상태
   const [isRandomMode, setIsRandomMode] = useState(false);
   const [randomCount, setRandomCount] = useState(5);
@@ -181,6 +185,7 @@ function App() {
     }
   };
 
+  // 💡 필터 조건이 바뀔 때마다 1페이지로 돌아가도록 setCurrentPage(1) 추가
   const toggleSubjectFilter = (subj) => {
     if (selectedSubjects.includes(subj)) {
       setSelectedSubjects(selectedSubjects.filter(s => s !== subj));
@@ -189,6 +194,7 @@ function App() {
     }
     setIsRandomMode(false);
     setIsTimeAttackMode(false);
+    setCurrentPage(1);
   };
 
   const toggleUnitFilter = (unit) => {
@@ -199,6 +205,7 @@ function App() {
     }
     setIsRandomMode(false);
     setIsTimeAttackMode(false);
+    setCurrentPage(1);
   };
 
   const toggleTagFilter = (tag) => {
@@ -209,6 +216,7 @@ function App() {
     }
     setIsRandomMode(false);
     setIsTimeAttackMode(false);
+    setCurrentPage(1);
   };
 
   const toggleGradeFilter = (grade) => {
@@ -219,6 +227,7 @@ function App() {
     }
     setIsRandomMode(false);
     setIsTimeAttackMode(false);
+    setCurrentPage(1);
   };
 
   const handleStartRandom = () => {
@@ -268,6 +277,7 @@ function App() {
     setShowResults({});
     setElapsedSeconds(0);
     setTimerActive(true);
+    setCurrentPage(1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -520,6 +530,7 @@ function App() {
     problems.flatMap(p => String(p.태그 || '').split(',').map(t => t.trim())).filter(Boolean)
   ));
 
+  // 필터링된 전체 문제 리스트
   const displayedProblems = isRandomMode 
     ? randomProblems 
     : problems.filter(p => {
@@ -541,6 +552,12 @@ function App() {
 
         return matchKeyword && matchSubj && matchUnit && matchTag && matchGrade;
       });
+
+  // 💡 현재 페이지에 보여줄 문제만 잘라내기 (Pagination 로직)
+  const indexOfLastProblem = currentPage * problemsPerPage;
+  const indexOfFirstProblem = indexOfLastProblem - problemsPerPage;
+  const currentDisplayedProblems = displayedProblems.slice(indexOfFirstProblem, indexOfLastProblem);
+  const totalPages = Math.max(1, Math.ceil(displayedProblems.length / problemsPerPage));
 
   const availableUnits = selectedSubjects.length > 0
     ? Array.from(new Set(selectedSubjects.flatMap(subj => UNIT_MAP[subj] || [])))
@@ -591,12 +608,12 @@ function App() {
             type="text" 
             placeholder="문제 ID, 태그, 과목, 단원 등을 검색하세요 (예: 2609, 킬러문항)" 
             value={searchKeyword}
-            onChange={(e) => { setSearchKeyword(e.target.value); setIsRandomMode(false); setIsTimeAttackMode(false); }}
+            onChange={(e) => { setSearchKeyword(e.target.value); setIsRandomMode(false); setIsTimeAttackMode(false); setCurrentPage(1); }}
             style={{ flex: 1, padding: '8px 12px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '14px' }}
           />
           {searchKeyword && (
             <button 
-              onClick={() => setSearchKeyword('')}
+              onClick={() => { setSearchKeyword(''); setCurrentPage(1); }}
               style={{ padding: '8px 12px', background: '#6c757d', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}
             >
               검색 초기화
@@ -747,7 +764,7 @@ function App() {
             </button>
             {(isRandomMode || isTimeAttackMode) && (
               <button 
-                onClick={() => { setIsRandomMode(false); setIsTimeAttackMode(false); setTimerActive(false); setTaTimerActive(false); }}
+                onClick={() => { setIsRandomMode(false); setIsTimeAttackMode(false); setTimerActive(false); setTaTimerActive(false); setCurrentPage(1); }}
                 style={{ padding: '7px 12px', background: '#6c757d', color: '#fff', border: 'none', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' }}
               >
                 전체 목록으로 복귀
@@ -850,7 +867,6 @@ function App() {
               <div style={{ display: 'flex', gap: '25px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
                 
                 <div style={{ flex: '1 1 500px', textAlign: 'center', background: '#fafafa', padding: '15px', borderRadius: '8px', border: '1px solid #eee', minHeight: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
-                  {/* 💡 한글 경로 인코딩 및 공백 제거 적용 완료 */}
                   <img 
                     src={encodeURI(`/세광고_문제이미지/${String(taProblem.문제ID).trim()}.png`)} 
                     alt="타임어택 문제" 
@@ -1155,15 +1171,24 @@ function App() {
         </div>
       )}
       
-      {/* 일반 문제 리스트 영역 */}
+      {/* 💡 일반 문제 리스트 영역 (페이지네이션 적용) */}
       {!isTimeAttackMode && (
         loading ? (
           <p style={{ textAlign: 'center' }}>기출문제 데이터를 불러오는 중입니다...</p>
-        ) : displayedProblems.length === 0 ? (
+        ) : currentDisplayedProblems.length === 0 ? (
           <p style={{ textAlign: 'center', color: '#777' }}>조건에 맞는 문제가 없습니다.</p>
         ) : (
           <div>
-            {displayedProblems.map((prob, index) => {
+            <div style={{ marginBottom: '15px', color: '#666', fontSize: '14px', fontWeight: 'bold' }}>
+              총 {displayedProblems.length}문제가 검색되었습니다. (페이지 {currentPage}/{totalPages})
+            </div>
+            {currentDisplayedProblems.map((prob) => {
+              // 원래 배열(displayedProblems)에서의 정확한 인덱스를 찾기 위해 문제ID를 키로 사용하거나,
+              // 전체 문제를 기준으로 하는 인덱스가 필요합니다. 문제ID로 상태를 관리하면 안전합니다.
+              // 현재 구조에서는 index 대신 prob.문제ID를 활용하는 것이 좋지만, 기존 userAnswers가 인덱스 기반이면 오류가 날 수 있습니다.
+              // 가장 안전한 방법은 화면에 렌더링된 문제 리스트의 고유 index를 유지하는 것입니다.
+              const index = problems.findIndex(p => p.문제ID === prob.문제ID);
+              
               const selected = userAnswers[index];
               const isSubmitted = showResults[index];
               
@@ -1180,7 +1205,7 @@ function App() {
               const tagList = String(prob.태그 || '').split(',').map(t => t.trim()).filter(Boolean);
 
               return (
-                <div key={index} style={{ border: '1px solid #ddd', padding: '25px', borderRadius: '12px', marginBottom: '30px', background: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }}>
+                <div key={prob.문제ID} style={{ border: '1px solid #ddd', padding: '25px', borderRadius: '12px', marginBottom: '30px', background: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }}>
                   
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', borderBottom: '1px solid #eee', paddingBottom: '10px' }}>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -1207,7 +1232,6 @@ function App() {
                   <div style={{ display: 'flex', gap: '25px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
                     
                     <div style={{ flex: '1 1 500px', textAlign: 'center', background: '#fafafa', padding: '15px', borderRadius: '8px', border: '1px solid #eee', minHeight: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
-                      {/* 💡 한글 경로 인코딩 및 공백 제거 적용 완료 */}
                       <img 
                         src={encodeURI(`/세광고_문제이미지/${String(prob.문제ID).trim()}.png`)} 
                         alt="기출문제" 
@@ -1274,6 +1298,30 @@ function App() {
                 </div>
               );
             })}
+            
+            {/* 💡 페이지네이션 UI 바(이전/다음) */}
+            {totalPages > 1 && (
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '15px', marginTop: '30px', paddingBottom: '20px' }}>
+                <button 
+                  onClick={() => { setCurrentPage(p => p - 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }} 
+                  disabled={currentPage === 1}
+                  style={{ padding: '8px 15px', borderRadius: '5px', border: '1px solid #ccc', background: currentPage === 1 ? '#e9ecef' : '#fff', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
+                >
+                  이전
+                </button>
+                <span style={{ fontWeight: 'bold', color: '#555' }}>
+                  {currentPage} / {totalPages} 페이지
+                </span>
+                <button 
+                  onClick={() => { setCurrentPage(p => p + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }} 
+                  disabled={currentPage === totalPages}
+                  style={{ padding: '8px 15px', borderRadius: '5px', border: '1px solid #ccc', background: currentPage === totalPages ? '#e9ecef' : '#fff', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
+                >
+                  다음
+                </button>
+              </div>
+            )}
+            
           </div>
         )
       )}

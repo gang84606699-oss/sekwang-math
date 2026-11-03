@@ -781,7 +781,6 @@ function App() {
               </h3>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '600px', marginBottom: '25px', textAlign: 'left' }}>
-                {/* 과목/단원/난이도 선택 필터들은 기존과 동일하게 유지 */}
                 <div>
                   <label style={{ display: 'block', fontWeight: 'bold', fontSize: '14px', marginBottom: '8px' }}>📚 과목 범위:</label>
                   <div style={{ display: 'flex', gap: '10px', marginBottom: '8px' }}>
@@ -837,65 +836,83 @@ function App() {
                 <span style={{ fontSize: '28px', fontWeight: 'bold', color: '#dc3545' }}>{taTime.toFixed(1)}초</span>
               </div>
 
-              {/* 타임어택 정답 입력 영역 (이미지 렌더링 삭제 및 풀 위드 레이아웃 적용) */}
-              <div style={{ background: '#f8f9fa', padding: '20px', borderRadius: '8px', border: '1px solid #e9ecef', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <div>
-                  <h4 style={{ margin: '0 0 10px 0', color: '#333' }}>✍️ 빠른 정답 입력</h4>
-                  {taProblem && !String(taProblem['객관식 답'] || '').trim() ? (
-                    <input 
-                      type="text" 
-                      placeholder="주관식 정답 입력" 
-                      value={taAnswer}
-                      onChange={(e) => setTaAnswer(e.target.value)}
-                      style={{ padding: '12px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '16px', width: '100%', boxSizing: 'border-box' }}
-                    />
+              {/* 타임어택 정답 입력 영역 */}
+              <div style={{ display: 'flex', gap: '25px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                
+                <div style={{ flex: '1 1 500px', textAlign: 'center', background: '#fafafa', padding: '15px', borderRadius: '8px', border: '1px solid #eee', minHeight: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+                  <img 
+                    src={`/세광고_문제이미지/${taProblem.문제ID}.png`} 
+                    alt="타임어택 문제" 
+                    style={{ maxWidth: '100%', height: 'auto', display: 'block', margin: '0 auto', maxHeight: '600px' }} 
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      if (e.target.nextElementSibling) e.target.nextElementSibling.style.display = 'block';
+                    }}
+                  />
+                  <p style={{ color: '#999', fontStyle: 'italic', display: 'none', margin: 0 }}>
+                    ⚠️ '세광고_문제이미지' 폴더에 일치하는 이미지 파일({taProblem.문제ID}.png)이 없습니다.
+                  </p>
+                </div>
+
+                <div style={{ flex: '1 1 300px', background: '#f8f9fa', padding: '20px', borderRadius: '8px', border: '1px solid #e9ecef', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  <div>
+                    <h4 style={{ margin: '0 0 10px 0', color: '#333' }}>✍️ 빠른 정답 입력</h4>
+                    {taProblem && !String(taProblem['객관식 답'] || '').trim() ? (
+                      <input 
+                        type="text" 
+                        placeholder="주관식 정답 입력" 
+                        value={taAnswer}
+                        onChange={(e) => setTaAnswer(e.target.value)}
+                        style={{ padding: '12px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '16px', width: '100%', boxSizing: 'border-box' }}
+                      />
+                    ) : (
+                      <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', marginTop: '10px' }}>
+                        {['1', '2', '3', '4', '5'].map((num) => (
+                          <button
+                            key={num}
+                            onClick={() => setTaAnswer(num)}
+                            style={{
+                              width: '55px',
+                              height: '55px',
+                              borderRadius: '50%',
+                              border: taAnswer === num ? '2px solid #dc3545' : '1px solid #ccc',
+                              background: taAnswer === num ? '#dc3545' : '#fff',
+                              color: taAnswer === num ? '#fff' : '#333',
+                              fontSize: '20px',
+                              fontWeight: 'bold',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            {toCircled(num)}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {!taSubmitted ? (
+                    <button onClick={handleCheckTimeAttack} style={{ padding: '12px', background: '#dc3545', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '16px' }}>
+                      정답 제출 및 기록 측정
+                    </button>
                   ) : (
-                    <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', marginTop: '10px' }}>
-                      {['1', '2', '3', '4', '5'].map((num) => (
-                        <button
-                          key={num}
-                          onClick={() => setTaAnswer(num)}
-                          style={{
-                            width: '55px',
-                            height: '55px',
-                            borderRadius: '50%',
-                            border: taAnswer === num ? '2px solid #dc3545' : '1px solid #ccc',
-                            background: taAnswer === num ? '#dc3545' : '#fff',
-                            color: taAnswer === num ? '#fff' : '#333',
-                            fontSize: '20px',
-                            fontWeight: 'bold',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                          }}
-                        >
-                          {toCircled(num)}
+                    <div style={{ padding: '15px', borderRadius: '6px', background: taCorrect ? '#d4edda' : '#f8d7da', color: taCorrect ? '#155724' : '#721c24', fontWeight: 'bold', display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'center' }}>
+                      <span style={{ fontSize: '18px' }}>
+                        {taCorrect ? `🎉 정답! 기록: ${taTime.toFixed(1)}초` : '❌ 틀렸습니다!'}
+                      </span>
+                      {taCorrect && (
+                        <button onClick={() => openRankModal('timeattack', Number(taTime.toFixed(1)), `ID: ${taProblem.문제ID}`)} style={{ padding: '10px', background: '#28a745', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', marginTop: '5px' }}>
+                          🏆 타임어택 랭킹 등록하기
                         </button>
-                      ))}
+                      )}
+                      <button onClick={handleStartActualTimeAttack} style={{ padding: '8px', background: '#333', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', marginTop: '5px' }}>
+                        같은 조건으로 다시 도전
+                      </button>
                     </div>
                   )}
                 </div>
-
-                {!taSubmitted ? (
-                  <button onClick={handleCheckTimeAttack} style={{ padding: '12px', background: '#dc3545', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '16px' }}>
-                    정답 제출 및 기록 측정
-                  </button>
-                ) : (
-                  <div style={{ padding: '15px', borderRadius: '6px', background: taCorrect ? '#d4edda' : '#f8d7da', color: taCorrect ? '#155724' : '#721c24', fontWeight: 'bold', display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'center' }}>
-                    <span style={{ fontSize: '18px' }}>
-                      {taCorrect ? `🎉 정답! 기록: ${taTime.toFixed(1)}초` : '❌ 틀렸습니다!'}
-                    </span>
-                    {taCorrect && (
-                      <button onClick={() => openRankModal('timeattack', Number(taTime.toFixed(1)), `ID: ${taProblem.문제ID}`)} style={{ padding: '10px', background: '#28a745', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', marginTop: '5px' }}>
-                        🏆 타임어택 랭킹 등록하기
-                      </button>
-                    )}
-                    <button onClick={handleStartActualTimeAttack} style={{ padding: '8px', background: '#333', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', marginTop: '5px' }}>
-                      같은 조건으로 다시 도전
-                    </button>
-                  </div>
-                )}
               </div>
             </div>
           )}
@@ -903,7 +920,7 @@ function App() {
         </div>
       )}
 
-      {/* 🏆 명예의 전당 (기존과 동일하게 유지) */}
+      {/* 🏆 명예의 전당 */}
       <div style={{ background: '#fff', padding: '25px', borderRadius: '12px', marginBottom: '35px', boxShadow: '0 4px 12px rgba(0,0,0,0.06)', border: '1px solid #e9ecef' }}>
         <h2 style={{ margin: '0 0 15px 0', color: '#333', display: 'flex', alignItems: 'center', gap: '8px' }}>👑 세광고 명예의 전당 (랭킹 시스템)</h2>
         <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap' }}>
@@ -1116,7 +1133,7 @@ function App() {
         </div>
       )}
       
-      {/* 일반 문제 리스트 영역 (이미지 렌더링 삭제 및 풀 위드 폼 적용) */}
+      {/* 일반 문제 리스트 영역 */}
       {!isTimeAttackMode && (
         loading ? (
           <p style={{ textAlign: 'center' }}>기출문제 데이터를 불러오는 중입니다...</p>
@@ -1165,51 +1182,70 @@ function App() {
                     </div>
                   </div>
 
-                  <div style={{ background: '#f8f9fa', padding: '20px', borderRadius: '8px', border: '1px solid #e9ecef', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    <div>
-                      <h4 style={{ margin: '0 0 10px 0', color: '#333' }}>✍️ 답안 작성</h4>
-                      {!isSubjective ? (
-                        <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', marginTop: '10px' }}>
-                          {['1', '2', '3', '4', '5'].map((num) => (
-                            <button
-                              key={num}
-                              onClick={() => handleSelect(index, num)}
-                              style={{
-                                width: '55px', height: '55px', borderRadius: '50%',
-                                border: selected === num ? '2px solid #007bff' : '1px solid #ccc',
-                                background: selected === num ? '#007bff' : '#fff',
-                                color: selected === num ? '#fff' : '#333',
-                                fontSize: '20px', fontWeight: 'bold', cursor: 'pointer',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s'
-                              }}
-                            >
-                              {toCircled(num)}
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
-                          <input 
-                            type="text" 
-                            placeholder="주관식 정답을 입력하세요" 
-                            value={selected || ''}
-                            onChange={(e) => handleSelect(index, e.target.value)}
-                            style={{ padding: '12px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '16px', width: '100%', boxSizing: 'border-box' }}
-                          />
+                  <div style={{ display: 'flex', gap: '25px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                    
+                    <div style={{ flex: '1 1 500px', textAlign: 'center', background: '#fafafa', padding: '15px', borderRadius: '8px', border: '1px solid #eee', minHeight: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+                      <img 
+                        src={`/세광고_문제이미지/${prob.문제ID}.png`} 
+                        alt="기출문제" 
+                        style={{ maxWidth: '100%', height: 'auto', display: 'block', margin: '0 auto', maxHeight: '600px' }} 
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          if (e.target.nextElementSibling) e.target.nextElementSibling.style.display = 'block';
+                        }}
+                      />
+                      <p style={{ color: '#999', fontStyle: 'italic', display: 'none', margin: 0 }}>
+                        ⚠️ '세광고_문제이미지' 폴더에 일치하는 이미지 파일({prob.문제ID}.png)이 없습니다.
+                      </p>
+                    </div>
+
+                    <div style={{ flex: '1 1 300px', background: '#f8f9fa', padding: '20px', borderRadius: '8px', border: '1px solid #e9ecef', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                      <div>
+                        <h4 style={{ margin: '0 0 10px 0', color: '#333' }}>✍️ 답안 작성</h4>
+                        {!isSubjective ? (
+                          <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', marginTop: '10px' }}>
+                            {['1', '2', '3', '4', '5'].map((num) => (
+                              <button
+                                key={num}
+                                onClick={() => handleSelect(index, num)}
+                                style={{
+                                  width: '55px', height: '55px', borderRadius: '50%',
+                                  border: selected === num ? '2px solid #007bff' : '1px solid #ccc',
+                                  background: selected === num ? '#007bff' : '#fff',
+                                  color: selected === num ? '#fff' : '#333',
+                                  fontSize: '20px', fontWeight: 'bold', cursor: 'pointer',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s'
+                                }}
+                              >
+                                {toCircled(num)}
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
+                            <input 
+                              type="text" 
+                              placeholder="주관식 정답을 입력하세요" 
+                              value={selected || ''}
+                              onChange={(e) => handleSelect(index, e.target.value)}
+                              style={{ padding: '12px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '16px', width: '100%', boxSizing: 'border-box' }}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <button onClick={() => handleCheck(index)} style={{ padding: '12px', background: '#28a745', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '16px', width: '100%' }}>정답 확인</button>
+
+                      {isSubmitted && (
+                        <div style={{ padding: '15px', borderRadius: '6px', background: isCorrect ? '#d4edda' : '#f8d7da', color: isCorrect ? '#155724' : '#721c24', fontWeight: 'bold', display: 'flex', flexDirection: 'column', gap: '5px', textAlign: 'center' }}>
+                          <span style={{ fontSize: '18px' }}>{isCorrect ? '🎉 정답입니다!' : '❌ 틀렸습니다.'}</span>
+                          <span style={{ fontSize: '14px', marginTop: '5px' }}>
+                            정답: <strong style={{ fontSize: '20px' }}>{isSubjective ? correctAns : toCircled(correctAns)}</strong>
+                          </span>
                         </div>
                       )}
                     </div>
 
-                    <button onClick={() => handleCheck(index)} style={{ padding: '12px', background: '#28a745', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '16px', width: '100%' }}>정답 확인</button>
-
-                    {isSubmitted && (
-                      <div style={{ padding: '15px', borderRadius: '6px', background: isCorrect ? '#d4edda' : '#f8d7da', color: isCorrect ? '#155724' : '#721c24', fontWeight: 'bold', display: 'flex', flexDirection: 'column', gap: '5px', textAlign: 'center' }}>
-                        <span style={{ fontSize: '18px' }}>{isCorrect ? '🎉 정답입니다!' : '❌ 틀렸습니다.'}</span>
-                        <span style={{ fontSize: '14px', marginTop: '5px' }}>
-                          정답: <strong style={{ fontSize: '20px' }}>{isSubjective ? correctAns : toCircled(correctAns)}</strong>
-                        </span>
-                      </div>
-                    )}
                   </div>
 
                 </div>

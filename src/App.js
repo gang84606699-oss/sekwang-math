@@ -829,7 +829,7 @@ function App() {
                     <th style={{ padding: '10px' }}>순위</th>
                     <th style={{ padding: '10px' }}>학번 이름</th>
                     <th style={{ padding: '10px' }}>문제</th>
-                    <th style={{ padding: '10px' }}>점수</th>
+                    <th style={{ padding: '10px' }}>오답률</th>
                     {isAdmin && <th style={{ padding: '10px' }}>관리</th>}
                   </tr>
                 </thead>
@@ -843,7 +843,7 @@ function App() {
                           <>
                             <td style={{ padding: '6px' }}><input type="text" value={editRankName} onChange={(e) => setEditRankName(e.target.value)} style={{ width: '90px', padding: '4px', textAlign: 'center' }}/></td>
                             <td style={{ padding: '6px' }}>{item.problemId.replace('ID: ', '')}</td>
-                            <td style={{ padding: '6px' }}>{item.score}점</td>
+                            <td style={{ padding: '6px' }}>{item.score}%</td>
                             <td style={{ padding: '6px' }}>
                               <button onClick={() => handleSaveRankEdit(item)} style={{ background: '#28a745', color: '#fff', border: 'none', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer', marginRight: '2px', fontSize: '11px' }}>저장</button>
                               <button onClick={() => setEditingRank(null)} style={{ background: '#6c757d', color: '#fff', border: 'none', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>취소</button>
@@ -853,7 +853,8 @@ function App() {
                           <>
                             <td style={{ padding: '10px' }}>{item.name}</td>
                             <td style={{ padding: '10px' }}>{item.problemId.replace('ID: ', '')}</td>
-                            <td style={{ padding: '10px', fontWeight: 'bold', color: '#e74c3c' }}>{item.score}점</td>
+                            {/* 💡 점 대신 % 출력하도록 변경됨 */}
+                            <td style={{ padding: '10px', fontWeight: 'bold', color: '#e74c3c' }}>{item.score}%</td>
                             {isAdmin && (
                               <td style={{ padding: '6px' }}>
                                 <button onClick={() => { setEditingRank(item.rowIndex); setEditRankName(item.name); }} style={{ background: '#ffc107', border: 'none', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer', marginRight: '4px', fontSize: '11px', fontWeight: 'bold' }}>수정</button>

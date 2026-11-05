@@ -53,6 +53,9 @@ function App() {
 
   const [editingRank, setEditingRank] = useState(null);
   const [editRankName, setEditRankName] = useState('');
+  
+  // 💡 타임어택 펼쳐보기 상태 추가
+  const [isTaRankExpanded, setIsTaRankExpanded] = useState(false);
 
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminPw, setAdminPw] = useState('');
@@ -861,7 +864,6 @@ function App() {
               <div style={{ display: 'flex', gap: '25px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
                 
                 <div style={{ flex: '1 1 500px', textAlign: 'center', background: '#fafafa', padding: '15px', borderRadius: '8px', border: '1px solid #eee', minHeight: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
-                  {/* 💡 경로를 원래 선생님 폴더 이름으로 복구했습니다! */}
                   <img 
                     src={encodeURI(`/세광고_문제이미지/${String(taProblem.문제ID).trim()}.png`)} 
                     alt="타임어택 문제" 
@@ -945,103 +947,83 @@ function App() {
       {/* 🏆 명예의 전당 */}
       <div style={{ background: '#fff', padding: '25px', borderRadius: '12px', marginBottom: '35px', boxShadow: '0 4px 12px rgba(0,0,0,0.06)', border: '1px solid #e9ecef' }}>
         <h2 style={{ margin: '0 0 15px 0', color: '#333', display: 'flex', alignItems: 'center', gap: '8px' }}>👑 세광고 명예의 전당 (랭킹 시스템)</h2>
-        <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
           
-          <div style={{ flex: 1, minWidth: '300px', background: '#f8f9fa', padding: '15px', borderRadius: '8px', border: '1px solid #e9ecef' }}>
-            <h4 style={{ margin: '0 0 10px 0', color: '#007bff' }}>📊 세부 세트 풀이 랭킹</h4>
-            {rankings.filter(r => r.모드.includes('랜덤')).length === 0 ? (
-              <p style={{ color: '#777', fontSize: '13px' }}>등록된 세트 랭킹 기록이 없습니다.</p>
-            ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                <thead>
-                  <tr style={{ background: '#e9ecef', textAlign: 'left' }}>
-                    <th style={{ padding: '6px' }}>순위</th>
-                    <th style={{ padding: '6px' }}>학번 이름</th>
-                    <th style={{ padding: '6px' }}>모드</th>
-                    <th style={{ padding: '6px' }}>시간</th>
-                    {isAdmin && <th style={{ padding: '6px', textAlign: 'center' }}>관리</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rankings.filter(r => r.모드.includes('랜덤')).sort((a, b) => Number(a.기록) - Number(b.기록)).slice(0, 5).map((item, idx) => (
-                      <tr key={idx} style={{ borderBottom: '1px solid #dee2e6' }}>
-                        <td style={{ padding: '6px', fontWeight: 'bold' }}>{idx === 0 ? '🥇 1위' : idx === 1 ? '🥈 2위' : idx === 2 ? '🥉 3위' : `${idx + 1}위`}</td>
-                        {editingRank === item.rowIndex ? (
-                          <>
-                            <td style={{ padding: '4px' }}><input type="text" value={editRankName} onChange={(e) => setEditRankName(e.target.value)} style={{ width: '100px', padding: '3px' }}/></td>
-                            <td style={{ padding: '4px' }}>{item.모드}</td>
-                            <td style={{ padding: '4px', color: '#888' }}>{Math.floor(item.기록 / 60)}분 {item.기록 % 60}초</td>
-                            <td style={{ padding: '4px', textAlign: 'center' }}>
-                              <button onClick={() => handleSaveRankEdit(item)} style={{ background: '#28a745', color: '#fff', border: 'none', padding: '3px 6px', borderRadius: '3px', cursor: 'pointer', marginRight: '3px' }}>저장</button>
-                              <button onClick={() => setEditingRank(null)} style={{ background: '#6c757d', color: '#fff', border: 'none', padding: '3px 6px', borderRadius: '3px', cursor: 'pointer' }}>취소</button>
-                            </td>
-                          </>
-                        ) : (
-                          <>
-                            <td style={{ padding: '6px' }}>{item.학번이름}</td>
-                            <td style={{ padding: '6px' }}>{item.모드}</td>
-                            <td style={{ padding: '6px', fontWeight: 'bold', color: '#d9534f' }}>{Math.floor(item.기록 / 60)}분 {item.기록 % 60}초</td>
-                            {isAdmin && (
-                              <td style={{ padding: '6px', textAlign: 'center' }}>
-                                <button onClick={() => { setEditingRank(item.rowIndex); setEditRankName(item.학번이름); }} style={{ background: '#ffc107', border: 'none', padding: '3px 6px', borderRadius: '3px', cursor: 'pointer', marginRight: '4px', fontSize: '11px', fontWeight: 'bold' }}>이름수정</button>
-                                <button onClick={() => handleDeleteRank(item)} style={{ background: '#dc3545', color: '#fff', border: 'none', padding: '3px 6px', borderRadius: '3px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>삭제</button>
-                              </td>
-                            )}
-                          </>
-                        )}
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-
-          <div style={{ flex: 1, minWidth: '300px', background: '#f8f9fa', padding: '15px', borderRadius: '8px', border: '1px solid #e9ecef' }}>
-            <h4 style={{ margin: '0 0 10px 0', color: '#dc3545' }}>⚡ 타임어택 랭킹</h4>
+          {/* 💡 세부 세트 랭킹 박스는 삭제하고 타임어택 랭킹만 중앙 배치 */}
+          <div style={{ width: '100%', maxWidth: '800px', background: '#f8f9fa', padding: '15px', borderRadius: '8px', border: '1px solid #e9ecef' }}>
+            <h4 style={{ margin: '0 0 10px 0', color: '#dc3545', textAlign: 'center' }}>⚡ 타임어택 랭킹</h4>
             {rankings.filter(r => r.모드 === '타임어택').length === 0 ? (
-              <p style={{ color: '#777', fontSize: '13px' }}>등록된 타임어택 기록이 없습니다.</p>
+              <p style={{ color: '#777', fontSize: '13px', textAlign: 'center' }}>등록된 타임어택 기록이 없습니다.</p>
             ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                <thead>
-                  <tr style={{ background: '#e9ecef', textAlign: 'left' }}>
-                    <th style={{ padding: '6px' }}>순위</th>
-                    <th style={{ padding: '6px' }}>학번 이름</th>
-                    <th style={{ padding: '6px' }}>문제</th>
-                    <th style={{ padding: '6px' }}>시간</th>
-                    {isAdmin && <th style={{ padding: '6px', textAlign: 'center' }}>관리</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rankings.filter(r => r.모드 === '타임어택').sort((a, b) => Number(a.기록) - Number(b.기록)).slice(0, 5).map((item, idx) => (
-                      <tr key={idx} style={{ borderBottom: '1px solid #dee2e6' }}>
-                        <td style={{ padding: '6px', fontWeight: 'bold' }}>{idx === 0 ? '🥇 1위' : idx === 1 ? '🥈 2위' : idx === 2 ? '🥉 3위' : `${idx + 1}위`}</td>
-                        {editingRank === item.rowIndex ? (
-                          <>
-                            <td style={{ padding: '4px' }}><input type="text" value={editRankName} onChange={(e) => setEditRankName(e.target.value)} style={{ width: '100px', padding: '3px' }}/></td>
-                            <td style={{ padding: '4px' }}>{item.세부정보.replace('ID: ', '')}</td>
-                            <td style={{ padding: '4px', color: '#888' }}>{item.기록}초</td>
-                            <td style={{ padding: '4px', textAlign: 'center' }}>
-                              <button onClick={() => handleSaveRankEdit(item)} style={{ background: '#28a745', color: '#fff', border: 'none', padding: '3px 6px', borderRadius: '3px', cursor: 'pointer', marginRight: '3px' }}>저장</button>
-                              <button onClick={() => setEditingRank(null)} style={{ background: '#6c757d', color: '#fff', border: 'none', padding: '3px 6px', borderRadius: '3px', cursor: 'pointer' }}>취소</button>
-                            </td>
-                          </>
-                        ) : (
-                          <>
-                            <td style={{ padding: '6px' }}>{item.학번이름}</td>
-                            <td style={{ padding: '6px' }}>{item.세부정보.replace('ID: ', '')}</td>
-                            <td style={{ padding: '6px', fontWeight: 'bold', color: '#dc3545' }}>{item.기록}초</td>
-                            {isAdmin && (
+              <>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                  <thead>
+                    <tr style={{ background: '#e9ecef', textAlign: 'left' }}>
+                      <th style={{ padding: '10px', textAlign: 'center' }}>순위</th>
+                      <th style={{ padding: '10px', textAlign: 'center' }}>학번 이름</th>
+                      <th style={{ padding: '10px', textAlign: 'center' }}>문제</th>
+                      <th style={{ padding: '10px', textAlign: 'center' }}>시간</th>
+                      {isAdmin && <th style={{ padding: '10px', textAlign: 'center' }}>관리</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rankings.filter(r => r.모드 === '타임어택')
+                      .sort((a, b) => Number(a.기록) - Number(b.기록))
+                      // 💡 15개 또는 전체 표시 로직
+                      .slice(0, isTaRankExpanded ? rankings.length : 15)
+                      .map((item, idx) => (
+                        <tr key={idx} style={{ borderBottom: '1px solid #dee2e6', textAlign: 'center' }}>
+                          <td style={{ padding: '10px', fontWeight: 'bold' }}>{idx === 0 ? '🥇 1위' : idx === 1 ? '🥈 2위' : idx === 2 ? '🥉 3위' : `${idx + 1}위`}</td>
+                          {editingRank === item.rowIndex ? (
+                            <>
+                              <td style={{ padding: '6px' }}><input type="text" value={editRankName} onChange={(e) => setEditRankName(e.target.value)} style={{ width: '120px', padding: '5px', textAlign: 'center' }}/></td>
+                              <td style={{ padding: '6px' }}>{item.세부정보.replace('ID: ', '')}</td>
+                              <td style={{ padding: '6px', color: '#888' }}>{item.기록}초</td>
                               <td style={{ padding: '6px', textAlign: 'center' }}>
-                                <button onClick={() => { setEditingRank(item.rowIndex); setEditRankName(item.학번이름); }} style={{ background: '#ffc107', border: 'none', padding: '3px 6px', borderRadius: '3px', cursor: 'pointer', marginRight: '4px', fontSize: '11px', fontWeight: 'bold' }}>이름수정</button>
-                                <button onClick={() => handleDeleteRank(item)} style={{ background: '#dc3545', color: '#fff', border: 'none', padding: '3px 6px', borderRadius: '3px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>삭제</button>
+                                <button onClick={() => handleSaveRankEdit(item)} style={{ background: '#28a745', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', marginRight: '4px' }}>저장</button>
+                                <button onClick={() => setEditingRank(null)} style={{ background: '#6c757d', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}>취소</button>
                               </td>
-                            )}
-                          </>
-                        )}
-                      </tr>
+                            </>
+                          ) : (
+                            <>
+                              <td style={{ padding: '10px' }}>{item.학번이름}</td>
+                              <td style={{ padding: '10px' }}>{item.세부정보.replace('ID: ', '')}</td>
+                              <td style={{ padding: '10px', fontWeight: 'bold', color: '#dc3545' }}>{item.기록}초</td>
+                              {isAdmin && (
+                                <td style={{ padding: '6px', textAlign: 'center' }}>
+                                  <button onClick={() => { setEditingRank(item.rowIndex); setEditRankName(item.학번이름); }} style={{ background: '#ffc107', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', marginRight: '5px', fontSize: '12px', fontWeight: 'bold' }}>수정</button>
+                                  <button onClick={() => handleDeleteRank(item)} style={{ background: '#dc3545', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>삭제</button>
+                                </td>
+                              )}
+                            </>
+                          )}
+                        </tr>
                     ))}
-                </tbody>
-              </table>
+                  </tbody>
+                </table>
+                
+                {/* 💡 펼쳐보기 버튼 (데이터가 15개 초과일 때만 렌더링) */}
+                {rankings.filter(r => r.모드 === '타임어택').length > 15 && (
+                  <div style={{ textAlign: 'center', marginTop: '15px' }}>
+                    <button 
+                      onClick={() => setIsTaRankExpanded(!isTaRankExpanded)}
+                      style={{
+                        padding: '10px 20px',
+                        backgroundColor: '#fff',
+                        border: '1px solid #ced4da',
+                        borderRadius: '20px',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        fontWeight: 'bold',
+                        color: '#495057',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                      }}
+                    >
+                      {isTaRankExpanded ? '접기 ▲' : '16위 이하 펼쳐보기 ▼'}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -1222,7 +1204,6 @@ function App() {
                   <div style={{ display: 'flex', gap: '25px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
                     
                     <div style={{ flex: '1 1 500px', textAlign: 'center', background: '#fafafa', padding: '15px', borderRadius: '8px', border: '1px solid #eee', minHeight: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
-                      {/* 💡 경로를 원래 선생님 폴더 이름으로 복구했습니다! */}
                       <img 
                         src={encodeURI(`/세광고_문제이미지/${String(prob.문제ID).trim()}.png`)} 
                         alt="기출문제" 

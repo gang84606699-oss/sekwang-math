@@ -4,7 +4,11 @@ import './App.css';
 
 function App() {
   const [problems, setProblems] = useState([]);
-  const [rankings, setRankings] = useState([]);
+  
+  // 💡 GAS 백엔드 변경에 맞춰 랭킹 데이터를 두 가지로 분리해서 받습니다.
+  const [difficultyData, setDifficultyData] = useState([]);
+  const [timeData, setTimeData] = useState([]);
+  
   const [loading, setLoading] = useState(true);
   
   const [userAnswers, setUserAnswers] = useState({});
@@ -17,7 +21,7 @@ function App() {
   const [selectedTags, setSelectedTags] = useState([]);
   const [selectedGrades, setSelectedGrades] = useState([]);
   
-  // 💡 페이지네이션 상태 추가 및 한 페이지당 문제 수 5개
+  // 일반 문제 리스트 페이지네이션 상태 (한 페이지당 5개)
   const [currentPage, setCurrentPage] = useState(1);
   const problemsPerPage = 5; 
   
@@ -50,13 +54,16 @@ function App() {
   const [rankScoreValue, setRankScoreValue] = useState(0);
   const [rankDetailInfo, setRankDetailInfo] = useState('');
   const [studentNameInput, setStudentNameInput] = useState('');
+  
+  // 💡 중복 등록 방지 (연타 방지) 상태
+  const [isSubmittingRank, setIsSubmittingRank] = useState(false);
 
   const [editingRank, setEditingRank] = useState(null);
   const [editRankName, setEditRankName] = useState('');
   
-  // 💡 타임어택 랭킹 페이지네이션 상태 (기본 1페이지, 한 페이지당 15명)
-  const [taRankCurrentPage, setTaRankCurrentPage] = useState(1);
-  const taRankItemsPerPage = 15;
+  // 💡 명예의 전당(랭킹) 페이지네이션 상태 (기본 1페이지, 한 페이지당 10명 제한)
+  const [rankCurrentPage, setRankCurrentPage] = useState(1);
+  const rankItemsPerPage = 10;
 
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminPw, setAdminPw] = useState('');
@@ -77,7 +84,7 @@ function App() {
   const [feedbackTargetId, setFeedbackTargetId] = useState('');
   const [feedbackText, setFeedbackText] = useState('');
 
-  // Apps Script 주소
+  // Apps Script 주소 (본인의 URL로 유지)
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbzEMHYAPF2V1tzJFzeqTXY4-ce5C_w20rxOz5mqVIpTkcM-9kEehg5etgh3X33a35rxRQ/exec';
 
   const derivedSubjects = Array.from(new Set(problems.map(p => String(p.과목 || '').trim()).filter(Boolean)));
@@ -143,8 +150,10 @@ function App() {
   const fetchData = () => {
     axios.get(GAS_URL)
       .then(response => {
+        // 💡 GAS 백엔드에서 변경된 3가지 데이터를 각각 분리해서 받습니다.
         setProblems(response.data.problems || []);
-        setRankings(response.data.rankings || []);
+        setDifficultyData(response.data.difficultyData || []);
+        setTimeData(response.data.timeData || []);
         setLoading(false);
         if (response.data.problems && response.data.problems.length > 0) {
           const lastId = Number(response.data.problems[response.data.problems.length - 1].문제ID) || 260901;
@@ -189,15 +198,14 @@ function App() {
     }
   };
 
+  // 필터 토글 로직
   const toggleSubjectFilter = (subj) => {
     if (selectedSubjects.includes(subj)) {
       setSelectedSubjects(selectedSubjects.filter(s => s !== subj));
     } else {
       setSelectedSubjects([...selectedSubjects, subj]);
     }
-    setIsRandomMode(false);
-    setIsTimeAttackMode(false);
-    setCurrentPage(1);
+    setIsRandomMode(false); setIsTimeAttackMode(false); setCurrentPage(1);
   };
 
   const toggleUnitFilter = (unit) => {
@@ -206,9 +214,7 @@ function App() {
     } else {
       setSelectedUnits([...selectedUnits, unit]);
     }
-    setIsRandomMode(false);
-    setIsTimeAttackMode(false);
-    setCurrentPage(1);
+    setIsRandomMode(false); setIsTimeAttackMode(false); setCurrentPage(1);
   };
 
   const toggleTagFilter = (tag) => {
@@ -217,9 +223,7 @@ function App() {
     } else {
       setSelectedTags([...selectedTags, tag]);
     }
-    setIsRandomMode(false);
-    setIsTimeAttackMode(false);
-    setCurrentPage(1);
+    setIsRandomMode(false); setIsTimeAttackMode(false); setCurrentPage(1);
   };
 
   const toggleGradeFilter = (grade) => {
@@ -228,9 +232,7 @@ function App() {
     } else {
       setSelectedGrades([...selectedGrades, grade]);
     }
-    setIsRandomMode(false);
-    setIsTimeAttackMode(false);
-    setCurrentPage(1);
+    setIsRandomMode(false); setIsTimeAttackMode(false); setCurrentPage(1);
   };
 
   const handleStartRandom = () => {
@@ -246,127 +248,61 @@ function App() {
       );
     }
     
-    if (selectedSubjects.length > 0) {
-      pool = pool.filter(p => selectedSubjects.includes(String(p.과목).trim()));
-    }
-    if (selectedUnits.length > 0) {
-      pool = pool.filter(p => selectedUnits.includes(String(p.세부단원).trim()));
-    }
-    if (selectedTags.length > 0) {
-      pool = pool.filter(p => {
-        const pTags = String(p.태그 || '').split(',').map(t => t.trim());
-        return selectedTags.some(t => pTags.includes(t));
-      });
-    }
-    if (selectedGrades.length > 0) {
-      pool = pool.filter(p => {
-        const grade = getDifficultyGrade(p.오답률).name;
-        return selectedGrades.includes(grade);
-      });
-    }
+    if (selectedSubjects.length > 0) pool = pool.filter(p => selectedSubjects.includes(String(p.과목).trim()));
+    if (selectedUnits.length > 0) pool = pool.filter(p => selectedUnits.includes(String(p.세부단원).trim()));
+    if (selectedTags.length > 0) pool = pool.filter(p => {
+      const pTags = String(p.태그 || '').split(',').map(t => t.trim());
+      return selectedTags.some(t => pTags.includes(t));
+    });
+    if (selectedGrades.length > 0) pool = pool.filter(p => selectedGrades.includes(getDifficultyGrade(p.오답률).name));
 
-    if (pool.length === 0) {
-      alert('선택한 조건에 해당하는 문제가 없습니다!');
-      return;
-    }
+    if (pool.length === 0) return alert('선택한 조건에 해당하는 문제가 없습니다!');
 
     const shuffled = [...pool].sort(() => 0.5 - Math.random());
-    const selected = shuffled.slice(0, Number(randomCount));
-
-    setRandomProblems(selected);
-    setIsRandomMode(true);
-    setIsTimeAttackMode(false);
-    setUserAnswers({});
-    setShowResults({});
-    setElapsedSeconds(0);
-    setTimerActive(true);
-    setCurrentPage(1);
+    setRandomProblems(shuffled.slice(0, Number(randomCount)));
+    setIsRandomMode(true); setIsTimeAttackMode(false);
+    setUserAnswers({}); setShowResults({}); setElapsedSeconds(0); setTimerActive(true); setCurrentPage(1);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleOpenTimeAttackSelector = () => {
-    setIsTimeAttackMode(true);
-    setTaStep('select');
-    setTaSubjMode('all');
-    setTaSelectedSubjs([]);
-    setTaUnitMode('all');
-    setTaSelectedUnits([]);
-    setTaGrade('전체');
-    setIsRandomMode(false);
+    setIsTimeAttackMode(true); setTaStep('select'); setTaSubjMode('all'); setTaSelectedSubjs([]);
+    setTaUnitMode('all'); setTaSelectedUnits([]); setTaGrade('전체'); setIsRandomMode(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const toggleTaSubject = (subj) => {
-    if (taSelectedSubjs.includes(subj)) {
-      setTaSelectedSubjs(taSelectedSubjs.filter(s => s !== subj));
-    } else {
-      setTaSelectedSubjs([...taSelectedSubjs, subj]);
-    }
-  };
-
-  const toggleTaUnit = (unit) => {
-    if (taSelectedUnits.includes(unit)) {
-      setTaSelectedUnits(taSelectedUnits.filter(u => u !== unit));
-    } else {
-      setTaSelectedUnits([...taSelectedUnits, unit]);
-    }
-  };
+  const toggleTaSubject = (subj) => taSelectedSubjs.includes(subj) ? setTaSelectedSubjs(taSelectedSubjs.filter(s => s !== subj)) : setTaSelectedSubjs([...taSelectedSubjs, subj]);
+  const toggleTaUnit = (unit) => taSelectedUnits.includes(unit) ? setTaSelectedUnits(taSelectedUnits.filter(u => u !== unit)) : setTaSelectedUnits([...taSelectedUnits, unit]);
 
   const handleStartActualTimeAttack = () => {
     let pool = problems;
 
     if (taSubjMode === 'custom') {
-      if (taSelectedSubjs.length === 0) {
-        alert('최소 한 개 이상의 과목을 선택해주세요!');
-        return;
-      }
+      if (taSelectedSubjs.length === 0) return alert('최소 한 개 이상의 과목을 선택해주세요!');
       pool = pool.filter(p => taSelectedSubjs.includes(String(p.과목).trim()));
     }
-
     if (taUnitMode === 'custom') {
-      if (taSelectedUnits.length === 0) {
-        alert('최소 한 개 이상의 단원을 선택해주세요!');
-        return;
-      }
+      if (taSelectedUnits.length === 0) return alert('최소 한 개 이상의 단원을 선택해주세요!');
       pool = pool.filter(p => taSelectedUnits.includes(String(p.세부단원).trim()));
     }
+    if (taGrade !== '전체') pool = pool.filter(p => getDifficultyGrade(p.오답률).name === taGrade);
 
-    if (taGrade !== '전체') {
-      pool = pool.filter(p => getDifficultyGrade(p.오답률).name === taGrade);
-    }
+    if (pool.length === 0) return alert('선택한 조건에 해당하는 문제가 없습니다!');
 
-    if (pool.length === 0) {
-      alert('선택한 조건에 해당하는 문제가 없습니다!');
-      return;
-    }
-
-    const randomProb = pool[Math.floor(Math.random() * pool.length)];
-    setTaProblem(randomProb);
-    setTaAnswer('');
-    setTaSubmitted(false);
-    setTaCorrect(false);
-    setTaTime(0);
-    setTaStep('playing');
-    setTaTimerActive(true);
+    setTaProblem(pool[Math.floor(Math.random() * pool.length)]);
+    setTaAnswer(''); setTaSubmitted(false); setTaCorrect(false); setTaTime(0); setTaStep('playing'); setTaTimerActive(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleCheckTimeAttack = () => {
-    if (!taAnswer) {
-      alert('정답을 입력하거나 선택해주세요!');
-      return;
-    }
-    setTaTimerActive(false);
-    setTaSubmitted(true);
+    if (!taAnswer) return alert('정답을 입력하거나 선택해주세요!');
+    setTaTimerActive(false); setTaSubmitted(true);
 
     const objAns = String(taProblem['객관식 답'] || '').trim();
     const subjAns = String(taProblem['주관식 답'] || '').trim();
     const isSubjective = !objAns;
     const correctAns = isSubjective ? subjAns : objAns;
-
-    const correct = isSubjective 
-      ? String(taAnswer).trim().toLowerCase() === correctAns.toLowerCase()
-      : String(taAnswer).trim() === correctAns;
+    const correct = isSubjective ? String(taAnswer).trim().toLowerCase() === correctAns.toLowerCase() : String(taAnswer).trim() === correctAns;
 
     setTaCorrect(correct);
   };
@@ -379,15 +315,22 @@ function App() {
     setRankModalOpen(true);
   };
 
+  // 💡 랭킹 중복 등록(연타) 방지 로직 적용
   const submitRankingData = () => {
-    if (!studentNameInput.trim()) {
-      alert('학번과 이름을 입력해주세요! (예: 30105 홍길동)');
-      return;
-    }
+    if (!studentNameInput.trim()) return alert('학번과 이름을 입력해주세요! (예: 30105 홍길동)');
+    
+    // 이미 전송 중이면 함수 실행을 막음 (연타 방지)
+    if (isSubmittingRank) return;
+
+    setIsSubmittingRank(true); // 버튼 비활성화 상태로 전환
 
     const formData = new URLSearchParams();
     formData.append('action', 'addRank');
-    formData.append('모드', rankModeType === 'set' ? `랜덤 ${randomProblems.length}문항` : '타임어택');
+    
+    // GAS 백엔드 분류 기준을 위해 모드 값을 명확히 지정
+    const exactMode = rankModeType === 'set' ? '난이도' : '타임어택';
+    
+    formData.append('모드', exactMode);
     formData.append('학번이름', studentNameInput.trim());
     formData.append('기록', rankScoreValue);
     formData.append('세부정보', rankDetailInfo);
@@ -400,9 +343,13 @@ function App() {
       })
       .catch(() => {
         alert('랭킹 등록 중 오류가 발생했습니다.');
+      })
+      .finally(() => {
+        setIsSubmittingRank(false); // 통신 성공/실패 여부에 상관없이 다시 버튼 활성화
       });
   };
 
+  // 랭킹 수정 및 삭제 로직 (관리자용)
   const handleSaveRankEdit = (item) => {
     const formData = new URLSearchParams();
     formData.append('action', 'updateRankNameOnly');
@@ -419,7 +366,7 @@ function App() {
   };
 
   const handleDeleteRank = (item) => {
-    if (!window.confirm(`[${item.학번이름}]의 기록을 삭제하시겠습니까?`)) return;
+    if (!window.confirm(`[${item.name || item.학번이름}]의 기록을 삭제하시겠습니까?`)) return;
     const formData = new URLSearchParams();
     formData.append('action', 'deleteRank');
     formData.append('rowIndex', item.rowIndex);
@@ -431,59 +378,36 @@ function App() {
       .catch(() => alert('삭제 중 오류가 발생했습니다.'));
   };
 
+  // 기출문제 등록 및 수정 로직
   const handleSubmitProblem = (e) => {
     e.preventDefault();
-    if (!customId) {
-      alert('문제 ID를 입력해주세요!');
-      return;
-    }
-
+    if (!customId) return alert('문제 ID를 입력해주세요!');
     setProcessing(true);
     const formData = new URLSearchParams();
     formData.append('action', isEditing ? 'update' : 'add');
-    formData.append('문제ID', customId);
-    formData.append('과목', formSub);
-    formData.append('세부단원', formUnit);
-    formData.append('태그', formTag);
-    formData.append('오답률', formErrorRate);
+    formData.append('문제ID', customId); formData.append('과목', formSub); formData.append('세부단원', formUnit);
+    formData.append('태그', formTag); formData.append('오답률', formErrorRate);
     formData.append('객관식 답', formType === '객관식' ? formObjAns : '');
     formData.append('주관식 답', formType === '주관식' ? formSubjAns : '');
 
     axios.post(GAS_URL, formData)
       .then(() => {
         alert(isEditing ? '문제가 수정되었습니다!' : '문제가 등록되었습니다!');
-        resetForm();
-        setProcessing(false);
-        fetchData();
+        resetForm(); setProcessing(false); fetchData();
       })
       .catch(err => {
-        console.error('처리 실패:', err);
-        alert('처리 중 오류가 발생했습니다.');
-        setProcessing(false);
+        console.error('처리 실패:', err); alert('처리 중 오류가 발생했습니다.'); setProcessing(false);
       });
   };
 
   const handleStartEdit = (prob) => {
-    setIsEditing(true);
-    setCustomId(String(prob.문제ID || ''));
-    setFormSub(prob.과목 || '수학I');
-    setFormUnit(prob.세부단원 || '');
-    setFormTag(prob.태그 || '');
-    setFormErrorRate(prob.오답률 || '');
-    
+    setIsEditing(true); setCustomId(String(prob.문제ID || '')); setFormSub(prob.과목 || '수학I');
+    setFormUnit(prob.세부단원 || ''); setFormTag(prob.태그 || ''); setFormErrorRate(prob.오답률 || '');
     const objAns = prob['객관식 답'] ? String(prob['객관식 답']).trim() : '';
     const subjAns = prob['주관식 답'] ? String(prob['주관식 답']).trim() : '';
     
-    if (objAns) {
-      setFormType('객관식');
-      setFormObjAns(objAns);
-      setFormSubjAns('');
-    } else {
-      setFormType('주관식');
-      setFormObjAns('1');
-      setFormSubjAns(subjAns);
-    }
-    
+    if (objAns) { setFormType('객관식'); setFormObjAns(objAns); setFormSubjAns(''); } 
+    else { setFormType('주관식'); setFormObjAns('1'); setFormSubjAns(subjAns); }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -493,65 +417,40 @@ function App() {
     formData.append('action', 'delete');
     formData.append('문제ID', problemId);
     axios.post(GAS_URL, formData)
-      .then(() => {
-        alert('문제가 삭제되었습니다.');
-        fetchData();
-      })
+      .then(() => { alert('문제가 삭제되었습니다.'); fetchData(); })
       .catch(err => alert('삭제 중 오류가 발생했습니다.'));
   };
 
   const resetForm = () => {
     setIsEditing(false);
     const nextId = problems.length > 0 ? Number(problems[problems.length - 1].문제ID) + 1 : 260901;
-    setCustomId(String(nextId));
-    setFormTag('');
-    setFormErrorRate('');
-    setFormType('객관식');
-    setFormObjAns('1');
-    setFormSubjAns('');
+    setCustomId(String(nextId)); setFormTag(''); setFormErrorRate(''); setFormType('객관식'); setFormObjAns('1'); setFormSubjAns('');
   };
 
   const sendFeedback = () => {
-    if (!feedbackText.trim()) {
-      alert('피드백 내용을 입력해주세요!');
-      return;
-    }
+    if (!feedbackText.trim()) return alert('피드백 내용을 입력해주세요!');
     const formData = new URLSearchParams();
-    formData.append('action', 'feedback');
-    formData.append('문제ID', feedbackTargetId);
-    formData.append('피드백내용', feedbackText);
+    formData.append('action', 'feedback'); formData.append('문제ID', feedbackTargetId); formData.append('피드백내용', feedbackText);
     axios.post(GAS_URL, formData)
       .then(() => {
         alert('선생님께 피드백이 성공적으로 전송되었습니다! 감사합니다.');
-        setFeedbackModalOpen(false);
-        setFeedbackText('');
+        setFeedbackModalOpen(false); setFeedbackText('');
       })
       .catch(() => alert('전송 중 오류가 발생했습니다.'));
   };
 
-  const allTags = Array.from(new Set(
-    problems.flatMap(p => String(p.태그 || '').split(',').map(t => t.trim())).filter(Boolean)
-  ));
-
+  const allTags = Array.from(new Set(problems.flatMap(p => String(p.태그 || '').split(',').map(t => t.trim())).filter(Boolean)));
   const displayedProblems = isRandomMode 
     ? randomProblems 
     : problems.filter(p => {
         const keyword = searchKeyword.trim().toLowerCase();
-        const matchKeyword = !keyword || 
-          String(p.문제ID).includes(keyword) ||
-          String(p.태그 || '').toLowerCase().includes(keyword) ||
-          String(p.과목 || '').toLowerCase().includes(keyword) ||
-          String(p.세부단원 || '').toLowerCase().includes(keyword);
-          
+        const matchKeyword = !keyword || String(p.문제ID).includes(keyword) || String(p.태그 || '').toLowerCase().includes(keyword) || String(p.과목 || '').toLowerCase().includes(keyword) || String(p.세부단원 || '').toLowerCase().includes(keyword);
         const matchSubj = selectedSubjects.length === 0 || selectedSubjects.includes(String(p.과목).trim());
         const matchUnit = selectedUnits.length === 0 || selectedUnits.includes(String(p.세부단원).trim());
-        
         const pTags = String(p.태그 || '').split(',').map(t => t.trim());
         const matchTag = selectedTags.length === 0 || selectedTags.some(t => pTags.includes(t));
-
         const grade = getDifficultyGrade(p.오답률).name;
         const matchGrade = selectedGrades.length === 0 || selectedGrades.includes(grade);
-
         return matchKeyword && matchSubj && matchUnit && matchTag && matchGrade;
       });
 
@@ -560,22 +459,26 @@ function App() {
   const currentDisplayedProblems = displayedProblems.slice(indexOfFirstProblem, indexOfLastProblem);
   const totalPages = Math.max(1, Math.ceil(displayedProblems.length / problemsPerPage));
 
-  const availableUnits = selectedSubjects.length > 0
-    ? Array.from(new Set(selectedSubjects.flatMap(subj => UNIT_MAP[subj] || [])))
-    : Array.from(new Set(problems.map(p => p.세부단원).filter(Boolean)));
-
+  const availableUnits = selectedSubjects.length > 0 ? Array.from(new Set(selectedSubjects.flatMap(subj => UNIT_MAP[subj] || []))) : Array.from(new Set(problems.map(p => p.세부단원).filter(Boolean)));
   const allSetChecked = isRandomMode && randomProblems.length > 0 && randomProblems.every((_, idx) => showResults[idx]);
+  const taAvailableUnits = taSubjMode === 'all' || taSelectedSubjs.length === 0 ? Array.from(new Set(problems.map(p => String(p.세부단원 || '').trim()).filter(Boolean))) : Array.from(new Set(taSelectedSubjs.flatMap(subj => UNIT_MAP[subj] || [])));
 
-  const taAvailableUnits = taSubjMode === 'all' || taSelectedSubjs.length === 0
-    ? Array.from(new Set(problems.map(p => String(p.세부단원 || '').trim()).filter(Boolean)))
-    : Array.from(new Set(taSelectedSubjs.flatMap(subj => UNIT_MAP[subj] || [])));
+  // 💡 랭킹 페이지네이션 로직 적용 (10개씩 분할 및 두 배열 기준 최대 페이지수 산출)
+  const rankTotalItems = Math.max(difficultyData?.length || 0, timeData?.length || 0);
+  const rankTotalPages = Math.ceil(rankTotalItems / rankItemsPerPage) || 1;
+  const indexOfLastRank = rankCurrentPage * rankItemsPerPage;
+  const indexOfFirstRank = indexOfLastRank - rankItemsPerPage;
+  
+  const currentDiffData = difficultyData?.slice(indexOfFirstRank, indexOfLastRank) || [];
+  const currentTimeData = timeData?.slice(indexOfFirstRank, indexOfLastRank) || [];
 
-  // 💡 타임어택 랭킹 페이지네이션 계산 로직
-  const taRankingsFiltered = rankings.filter(r => r.모드 === '타임어택').sort((a, b) => Number(a.기록) - Number(b.기록));
-  const taRankTotalPages = Math.max(1, Math.ceil(taRankingsFiltered.length / taRankItemsPerPage));
-  const indexOfLastTaRank = taRankCurrentPage * taRankItemsPerPage;
-  const indexOfFirstTaRank = indexOfLastTaRank - taRankItemsPerPage;
-  const currentDisplayedTaRankings = taRankingsFiltered.slice(indexOfFirstTaRank, indexOfLastTaRank);
+  // 1~3위 뱃지 헬퍼 함수
+  const renderRankBadge = (rank) => {
+    if (rank === 1) return '🥇 1위';
+    if (rank === 2) return '🥈 2위';
+    if (rank === 3) return '🥉 3위';
+    return `${rank}위`;
+  };
 
   return (
     <div className="App" style={{ padding: '20px', fontFamily: 'sans-serif', maxWidth: '1200px', margin: '0 auto', background: '#f8f9fa', minHeight: '100vh' }}>
@@ -638,16 +541,7 @@ function App() {
                 <button
                   key={gradeObj.name}
                   onClick={() => toggleGradeFilter(gradeObj.name)}
-                  style={{
-                    padding: '6px 14px',
-                    borderRadius: '20px',
-                    border: isSelected ? '2px solid #dc3545' : '1px solid #ccc',
-                    background: isSelected ? '#dc3545' : '#fff',
-                    color: isSelected ? '#fff' : '#333',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    fontSize: '13px'
-                  }}
+                  style={{ padding: '6px 14px', borderRadius: '20px', border: isSelected ? '2px solid #dc3545' : '1px solid #ccc', background: isSelected ? '#dc3545' : '#fff', color: isSelected ? '#fff' : '#333', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' }}
                 >
                   {isSelected ? `✔ ${gradeObj.name} (${gradeObj.desc})` : `${gradeObj.name} (${gradeObj.desc})`}
                 </button>
@@ -665,16 +559,7 @@ function App() {
                 <button
                   key={subj}
                   onClick={() => toggleSubjectFilter(subj)}
-                  style={{
-                    padding: '6px 14px',
-                    borderRadius: '20px',
-                    border: isSelected ? '2px solid #007bff' : '1px solid #ccc',
-                    background: isSelected ? '#007bff' : '#fff',
-                    color: isSelected ? '#fff' : '#333',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    fontSize: '13px'
-                  }}
+                  style={{ padding: '6px 14px', borderRadius: '20px', border: isSelected ? '2px solid #007bff' : '1px solid #ccc', background: isSelected ? '#007bff' : '#fff', color: isSelected ? '#fff' : '#333', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' }}
                 >
                   {isSelected ? `✔ ${subj}` : subj}
                 </button>
@@ -693,15 +578,7 @@ function App() {
                   <button
                     key={unit}
                     onClick={() => toggleUnitFilter(unit)}
-                    style={{
-                      padding: '5px 12px',
-                      borderRadius: '15px',
-                      border: isSelected ? '2px solid #28a745' : '1px solid #ccc',
-                      background: isSelected ? '#28a745' : '#fff',
-                      color: isSelected ? '#fff' : '#333',
-                      fontSize: '12px',
-                      cursor: 'pointer'
-                    }}
+                    style={{ padding: '5px 12px', borderRadius: '15px', border: isSelected ? '2px solid #28a745' : '1px solid #ccc', background: isSelected ? '#28a745' : '#fff', color: isSelected ? '#fff' : '#333', fontSize: '12px', cursor: 'pointer' }}
                   >
                     {isSelected ? `✔ ${unit}` : unit}
                   </button>
@@ -721,15 +598,7 @@ function App() {
                   <button
                     key={tag}
                     onClick={() => toggleTagFilter(tag)}
-                    style={{
-                      padding: '5px 12px',
-                      borderRadius: '15px',
-                      border: isSelected ? '2px solid #6f42c1' : '1px solid #ccc',
-                      background: isSelected ? '#6f42c1' : '#fff',
-                      color: isSelected ? '#fff' : '#333',
-                      fontSize: '12px',
-                      cursor: 'pointer'
-                    }}
+                    style={{ padding: '5px 12px', borderRadius: '15px', border: isSelected ? '2px solid #6f42c1' : '1px solid #ccc', background: isSelected ? '#6f42c1' : '#fff', color: isSelected ? '#fff' : '#333', fontSize: '12px', cursor: 'pointer' }}
                   >
                     {isSelected ? `✔ #${tag}` : `#${tag}`}
                   </button>
@@ -809,9 +678,7 @@ function App() {
           
           {taStep === 'select' ? (
             <div>
-              <h3 style={{ margin: '0 0 15px 0', color: '#dc3545', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                ⚡ 타임어택 카테고리 선택
-              </h3>
+              <h3 style={{ margin: '0 0 15px 0', color: '#dc3545', display: 'flex', alignItems: 'center', gap: '8px' }}>⚡ 타임어택 카테고리 선택</h3>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '600px', marginBottom: '25px', textAlign: 'left' }}>
                 <div>
@@ -904,18 +771,9 @@ function App() {
                             key={num}
                             onClick={() => setTaAnswer(num)}
                             style={{
-                              width: '55px',
-                              height: '55px',
-                              borderRadius: '50%',
-                              border: taAnswer === num ? '2px solid #dc3545' : '1px solid #ccc',
-                              background: taAnswer === num ? '#dc3545' : '#fff',
-                              color: taAnswer === num ? '#fff' : '#333',
-                              fontSize: '20px',
-                              fontWeight: 'bold',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center'
+                              width: '55px', height: '55px', borderRadius: '50%',
+                              border: taAnswer === num ? '2px solid #dc3545' : '1px solid #ccc', background: taAnswer === num ? '#dc3545' : '#fff', color: taAnswer === num ? '#fff' : '#333',
+                              fontSize: '20px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
                             }}
                           >
                             {toCircled(num)}
@@ -952,134 +810,182 @@ function App() {
         </div>
       )}
 
-      {/* 🏆 명예의 전당 */}
+      {/* 🏆 💡 새롭게 구성된 명예의 전당 (좌우 분할) */}
       <div style={{ background: '#fff', padding: '25px', borderRadius: '12px', marginBottom: '35px', boxShadow: '0 4px 12px rgba(0,0,0,0.06)', border: '1px solid #e9ecef' }}>
         <h2 style={{ margin: '0 0 15px 0', color: '#333', display: 'flex', alignItems: 'center', gap: '8px' }}>👑 세광고 명예의 전당 (랭킹 시스템)</h2>
-        <div style={{ display: 'flex', justifyContent: 'center' }}>
+        
+        {/* 좌우 Flexbox 컨테이너 */}
+        <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap', justifyContent: 'center' }}>
           
-          <div style={{ width: '100%', maxWidth: '800px', background: '#f8f9fa', padding: '15px', borderRadius: '8px', border: '1px solid #e9ecef' }}>
-            <h4 style={{ margin: '0 0 10px 0', color: '#dc3545', textAlign: 'center' }}>⚡ 타임어택 랭킹</h4>
-            {taRankingsFiltered.length === 0 ? (
+          {/* 왼쪽: 난이도 랭킹 */}
+          <div style={{ flex: 1, minWidth: '350px', background: '#f8f9fa', padding: '15px', borderRadius: '8px', border: '1px solid #e9ecef' }}>
+            <h4 style={{ margin: '0 0 10px 0', color: '#e74c3c', textAlign: 'center' }}>🔥 난이도 랭킹</h4>
+            {difficultyData.length === 0 ? (
+              <p style={{ color: '#777', fontSize: '13px', textAlign: 'center' }}>등록된 난이도 기록이 없습니다.</p>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', textAlign: 'center' }}>
+                <thead>
+                  <tr style={{ background: '#e9ecef' }}>
+                    <th style={{ padding: '10px' }}>순위</th>
+                    <th style={{ padding: '10px' }}>학번 이름</th>
+                    <th style={{ padding: '10px' }}>문제</th>
+                    <th style={{ padding: '10px' }}>점수</th>
+                    {isAdmin && <th style={{ padding: '10px' }}>관리</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {currentDiffData.map((item, idx) => {
+                    const actualRank = indexOfFirstRank + idx + 1;
+                    return (
+                      <tr key={idx} style={{ borderBottom: '1px solid #dee2e6' }}>
+                        <td style={{ padding: '10px', fontWeight: 'bold' }}>{renderRankBadge(actualRank)}</td>
+                        {editingRank === item.rowIndex ? (
+                          <>
+                            <td style={{ padding: '6px' }}><input type="text" value={editRankName} onChange={(e) => setEditRankName(e.target.value)} style={{ width: '90px', padding: '4px', textAlign: 'center' }}/></td>
+                            <td style={{ padding: '6px' }}>{item.problemId.replace('ID: ', '')}</td>
+                            <td style={{ padding: '6px' }}>{item.score}점</td>
+                            <td style={{ padding: '6px' }}>
+                              <button onClick={() => handleSaveRankEdit(item)} style={{ background: '#28a745', color: '#fff', border: 'none', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer', marginRight: '2px', fontSize: '11px' }}>저장</button>
+                              <button onClick={() => setEditingRank(null)} style={{ background: '#6c757d', color: '#fff', border: 'none', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>취소</button>
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            <td style={{ padding: '10px' }}>{item.name}</td>
+                            <td style={{ padding: '10px' }}>{item.problemId.replace('ID: ', '')}</td>
+                            <td style={{ padding: '10px', fontWeight: 'bold', color: '#e74c3c' }}>{item.score}점</td>
+                            {isAdmin && (
+                              <td style={{ padding: '6px' }}>
+                                <button onClick={() => { setEditingRank(item.rowIndex); setEditRankName(item.name); }} style={{ background: '#ffc107', border: 'none', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer', marginRight: '4px', fontSize: '11px', fontWeight: 'bold' }}>수정</button>
+                                <button onClick={() => handleDeleteRank(item)} style={{ background: '#dc3545', color: '#fff', border: 'none', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>삭제</button>
+                              </td>
+                            )}
+                          </>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* 오른쪽: 타임어택 랭킹 */}
+          <div style={{ flex: 1, minWidth: '350px', background: '#f8f9fa', padding: '15px', borderRadius: '8px', border: '1px solid #e9ecef' }}>
+            <h4 style={{ margin: '0 0 10px 0', color: '#e74c3c', textAlign: 'center' }}>⚡ 타임어택 랭킹</h4>
+            {timeData.length === 0 ? (
               <p style={{ color: '#777', fontSize: '13px', textAlign: 'center' }}>등록된 타임어택 기록이 없습니다.</p>
             ) : (
-              <>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-                  <thead>
-                    <tr style={{ background: '#e9ecef', textAlign: 'left' }}>
-                      <th style={{ padding: '10px', textAlign: 'center' }}>순위</th>
-                      <th style={{ padding: '10px', textAlign: 'center' }}>학번 이름</th>
-                      <th style={{ padding: '10px', textAlign: 'center' }}>문제</th>
-                      <th style={{ padding: '10px', textAlign: 'center' }}>시간</th>
-                      {isAdmin && <th style={{ padding: '10px', textAlign: 'center' }}>관리</th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {currentDisplayedTaRankings.map((item, idx) => {
-                      // 💡 실제 순위 계산 (예: 2페이지 첫 항목은 16위)
-                      const actualRank = indexOfFirstTaRank + idx + 1;
-                      return (
-                        <tr key={idx} style={{ borderBottom: '1px solid #dee2e6', textAlign: 'center' }}>
-                          <td style={{ padding: '10px', fontWeight: 'bold' }}>
-                            {actualRank === 1 ? '🥇 1위' : actualRank === 2 ? '🥈 2위' : actualRank === 3 ? '🥉 3위' : `${actualRank}위`}
-                          </td>
-                          {editingRank === item.rowIndex ? (
-                            <>
-                              <td style={{ padding: '6px' }}><input type="text" value={editRankName} onChange={(e) => setEditRankName(e.target.value)} style={{ width: '120px', padding: '5px', textAlign: 'center' }}/></td>
-                              <td style={{ padding: '6px' }}>{item.세부정보.replace('ID: ', '')}</td>
-                              <td style={{ padding: '6px', color: '#888' }}>{item.기록}초</td>
-                              <td style={{ padding: '6px', textAlign: 'center' }}>
-                                <button onClick={() => handleSaveRankEdit(item)} style={{ background: '#28a745', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', marginRight: '4px' }}>저장</button>
-                                <button onClick={() => setEditingRank(null)} style={{ background: '#6c757d', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}>취소</button>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', textAlign: 'center' }}>
+                <thead>
+                  <tr style={{ background: '#e9ecef' }}>
+                    <th style={{ padding: '10px' }}>순위</th>
+                    <th style={{ padding: '10px' }}>학번 이름</th>
+                    <th style={{ padding: '10px' }}>문제</th>
+                    <th style={{ padding: '10px' }}>시간</th>
+                    {isAdmin && <th style={{ padding: '10px' }}>관리</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {currentTimeData.map((item, idx) => {
+                    const actualRank = indexOfFirstRank + idx + 1;
+                    return (
+                      <tr key={idx} style={{ borderBottom: '1px solid #dee2e6' }}>
+                        <td style={{ padding: '10px', fontWeight: 'bold' }}>{renderRankBadge(actualRank)}</td>
+                        {editingRank === item.rowIndex ? (
+                          <>
+                            <td style={{ padding: '6px' }}><input type="text" value={editRankName} onChange={(e) => setEditRankName(e.target.value)} style={{ width: '90px', padding: '4px', textAlign: 'center' }}/></td>
+                            <td style={{ padding: '6px' }}>{item.problemId.replace('ID: ', '')}</td>
+                            <td style={{ padding: '6px' }}>{item.time}초</td>
+                            <td style={{ padding: '6px' }}>
+                              <button onClick={() => handleSaveRankEdit(item)} style={{ background: '#28a745', color: '#fff', border: 'none', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer', marginRight: '2px', fontSize: '11px' }}>저장</button>
+                              <button onClick={() => setEditingRank(null)} style={{ background: '#6c757d', color: '#fff', border: 'none', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>취소</button>
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            <td style={{ padding: '10px' }}>{item.name}</td>
+                            <td style={{ padding: '10px' }}>{item.problemId.replace('ID: ', '')}</td>
+                            <td style={{ padding: '10px', fontWeight: 'bold', color: '#e74c3c' }}>{item.time}초</td>
+                            {isAdmin && (
+                              <td style={{ padding: '6px' }}>
+                                <button onClick={() => { setEditingRank(item.rowIndex); setEditRankName(item.name); }} style={{ background: '#ffc107', border: 'none', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer', marginRight: '4px', fontSize: '11px', fontWeight: 'bold' }}>수정</button>
+                                <button onClick={() => handleDeleteRank(item)} style={{ background: '#dc3545', color: '#fff', border: 'none', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>삭제</button>
                               </td>
-                            </>
-                          ) : (
-                            <>
-                              <td style={{ padding: '10px' }}>{item.학번이름}</td>
-                              <td style={{ padding: '10px' }}>{item.세부정보.replace('ID: ', '')}</td>
-                              <td style={{ padding: '10px', fontWeight: 'bold', color: '#dc3545' }}>{item.기록}초</td>
-                              {isAdmin && (
-                                <td style={{ padding: '6px', textAlign: 'center' }}>
-                                  <button onClick={() => { setEditingRank(item.rowIndex); setEditRankName(item.학번이름); }} style={{ background: '#ffc107', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', marginRight: '5px', fontSize: '12px', fontWeight: 'bold' }}>수정</button>
-                                  <button onClick={() => handleDeleteRank(item)} style={{ background: '#dc3545', color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>삭제</button>
-                                </td>
-                              )}
-                            </>
-                          )}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                
-                {/* 💡 타임어택 랭킹 페이지네이션 UI */}
-                {taRankTotalPages > 1 && (
-                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', marginTop: '20px' }}>
-                    <button 
-                      onClick={() => setTaRankCurrentPage(1)} 
-                      disabled={taRankCurrentPage === 1}
-                      style={{ padding: '6px 12px', borderRadius: '4px', border: '1px solid #ccc', background: taRankCurrentPage === 1 ? '#e9ecef' : '#f8f9fa', cursor: taRankCurrentPage === 1 ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 'bold', color: '#495057' }}
-                    >
-                      처음
-                    </button>
-                    <button 
-                      onClick={() => setTaRankCurrentPage(p => p - 1)} 
-                      disabled={taRankCurrentPage === 1}
-                      style={{ padding: '6px 12px', borderRadius: '4px', border: '1px solid #ccc', background: taRankCurrentPage === 1 ? '#e9ecef' : '#f8f9fa', cursor: taRankCurrentPage === 1 ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 'bold', color: '#495057' }}
-                    >
-                      이전
-                    </button>
-
-                    {(() => {
-                      let startPage = Math.max(1, taRankCurrentPage - 2);
-                      let endPage = Math.min(taRankTotalPages, startPage + 4);
-                      if (endPage - startPage < 4) {
-                        startPage = Math.max(1, endPage - 4);
-                      }
-                      
-                      const pages = [];
-                      for (let i = startPage; i <= endPage; i++) {
-                        pages.push(
-                          <button
-                            key={i}
-                            onClick={() => setTaRankCurrentPage(i)}
-                            style={{
-                              padding: '6px 12px',
-                              borderRadius: '4px',
-                              border: taRankCurrentPage === i ? '1px solid #007bff' : '1px solid #ccc',
-                              background: taRankCurrentPage === i ? '#007bff' : '#fff',
-                              color: taRankCurrentPage === i ? '#fff' : '#333',
-                              cursor: 'pointer',
-                              fontSize: '12px',
-                              fontWeight: 'bold'
-                            }}
-                          >
-                            {i}
-                          </button>
-                        );
-                      }
-                      return pages;
-                    })()}
-
-                    <button 
-                      onClick={() => setTaRankCurrentPage(p => p + 1)} 
-                      disabled={taRankCurrentPage === taRankTotalPages}
-                      style={{ padding: '6px 12px', borderRadius: '4px', border: '1px solid #ccc', background: taRankCurrentPage === taRankTotalPages ? '#e9ecef' : '#f8f9fa', cursor: taRankCurrentPage === taRankTotalPages ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 'bold', color: '#495057' }}
-                    >
-                      다음
-                    </button>
-                    <button 
-                      onClick={() => setTaRankCurrentPage(taRankTotalPages)} 
-                      disabled={taRankCurrentPage === taRankTotalPages}
-                      style={{ padding: '6px 12px', borderRadius: '4px', border: '1px solid #ccc', background: taRankCurrentPage === taRankTotalPages ? '#e9ecef' : '#f8f9fa', cursor: taRankCurrentPage === taRankTotalPages ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 'bold', color: '#495057' }}
-                    >
-                      끝
-                    </button>
-                  </div>
-                )}
-              </>
+                            )}
+                          </>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             )}
           </div>
         </div>
+
+        {/* 💡 랭킹 통합 내비게이션 바 (가운데 정렬) */}
+        {rankTotalPages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', marginTop: '25px' }}>
+            <button 
+              onClick={() => setRankCurrentPage(1)} 
+              disabled={rankCurrentPage === 1}
+              style={{ padding: '6px 12px', borderRadius: '4px', border: '1px solid #ccc', background: rankCurrentPage === 1 ? '#e9ecef' : '#f8f9fa', cursor: rankCurrentPage === 1 ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 'bold', color: '#495057' }}
+            >
+              처음
+            </button>
+            <button 
+              onClick={() => setRankCurrentPage(p => p - 1)} 
+              disabled={rankCurrentPage === 1}
+              style={{ padding: '6px 12px', borderRadius: '4px', border: '1px solid #ccc', background: rankCurrentPage === 1 ? '#e9ecef' : '#f8f9fa', cursor: rankCurrentPage === 1 ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 'bold', color: '#495057' }}
+            >
+              이전
+            </button>
+
+            {(() => {
+              let startPage = Math.max(1, rankCurrentPage - 2);
+              let endPage = Math.min(rankTotalPages, startPage + 4);
+              if (endPage - startPage < 4) {
+                startPage = Math.max(1, endPage - 4);
+              }
+              
+              const pages = [];
+              for (let i = startPage; i <= endPage; i++) {
+                pages.push(
+                  <button
+                    key={i}
+                    onClick={() => setRankCurrentPage(i)}
+                    style={{
+                      padding: '6px 12px', borderRadius: '4px',
+                      border: rankCurrentPage === i ? '1px solid #007bff' : '1px solid #ccc',
+                      background: rankCurrentPage === i ? '#007bff' : '#fff',
+                      color: rankCurrentPage === i ? '#fff' : '#333',
+                      cursor: 'pointer', fontSize: '13px', fontWeight: 'bold'
+                    }}
+                  >
+                    {i}
+                  </button>
+                );
+              }
+              return pages;
+            })()}
+
+            <button 
+              onClick={() => setRankCurrentPage(p => p + 1)} 
+              disabled={rankCurrentPage === rankTotalPages}
+              style={{ padding: '6px 12px', borderRadius: '4px', border: '1px solid #ccc', background: rankCurrentPage === rankTotalPages ? '#e9ecef' : '#f8f9fa', cursor: rankCurrentPage === rankTotalPages ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 'bold', color: '#495057' }}
+            >
+              다음
+            </button>
+            <button 
+              onClick={() => setRankCurrentPage(rankTotalPages)} 
+              disabled={rankCurrentPage === rankTotalPages}
+              style={{ padding: '6px 12px', borderRadius: '4px', border: '1px solid #ccc', background: rankCurrentPage === rankTotalPages ? '#e9ecef' : '#f8f9fa', cursor: rankCurrentPage === rankTotalPages ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 'bold', color: '#495057' }}
+            >
+              끝
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 관리자 등록 폼 */}
@@ -1091,31 +997,18 @@ function App() {
               <div style={{ flex: 1 }}>
                 <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px', fontSize: '13px' }}>문제 ID:</label>
                 <input 
-                  type="text" 
-                  value={customId} 
-                  disabled={isEditing}
-                  onChange={(e) => setCustomId(e.target.value)} 
+                  type="text" value={customId} disabled={isEditing} onChange={(e) => setCustomId(e.target.value)} 
                   style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc', background: isEditing ? '#e9ecef' : '#fff' }}
                 />
               </div>
               <div style={{ flex: 1 }}>
                 <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px', fontSize: '13px' }}>과목 (선택 또는 직접 입력):</label>
                 <input 
-                  list="subject-options"
-                  value={formSub} 
-                  onChange={(e) => {
-                    const sub = e.target.value;
-                    setFormSub(sub);
-                    if (UNIT_MAP[sub] && UNIT_MAP[sub].length > 0 && !formUnit) {
-                      setFormUnit(UNIT_MAP[sub][0]);
-                    }
-                  }} 
-                  placeholder="예: 대수, 미적분I"
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                  list="subject-options" value={formSub} 
+                  onChange={(e) => { const sub = e.target.value; setFormSub(sub); if (UNIT_MAP[sub] && UNIT_MAP[sub].length > 0 && !formUnit) setFormUnit(UNIT_MAP[sub][0]); }} 
+                  placeholder="예: 대수, 미적분I" style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
                 />
-                <datalist id="subject-options">
-                  {SUBJECTS.map(s => <option key={s} value={s} />)}
-                </datalist>
+                <datalist id="subject-options">{SUBJECTS.map(s => <option key={s} value={s} />)}</datalist>
               </div>
             </div>
 
@@ -1123,25 +1016,16 @@ function App() {
               <div style={{ flex: 1 }}>
                 <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px', fontSize: '13px' }}>세부단원 (선택 또는 직접 입력):</label>
                 <input 
-                  list="unit-options"
-                  type="text" 
-                  value={formUnit} 
-                  onChange={(e) => setFormUnit(e.target.value)}
-                  placeholder="예: 지수와 로그"
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                  list="unit-options" type="text" value={formUnit} onChange={(e) => setFormUnit(e.target.value)}
+                  placeholder="예: 지수와 로그" style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
                 />
-                <datalist id="unit-options">
-                  {(UNIT_MAP[formSub] || []).map(u => <option key={u} value={u} />)}
-                </datalist>
+                <datalist id="unit-options">{(UNIT_MAP[formSub] || []).map(u => <option key={u} value={u} />)}</datalist>
               </div>
               <div style={{ flex: 1 }}>
                 <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px', fontSize: '13px' }}>태그 (콤마로 구분, 예: 킬러문항, 빈출):</label>
                 <input 
-                  type="text" 
-                  value={formTag} 
-                  onChange={(e) => setFormTag(e.target.value)}
-                  placeholder="예: 킬러문항, 3점, 로피탈"
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                  type="text" value={formTag} onChange={(e) => setFormTag(e.target.value)}
+                  placeholder="예: 킬러문항, 3점, 로피탈" style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
                 />
               </div>
             </div>
@@ -1150,11 +1034,8 @@ function App() {
               <div style={{ flex: 1 }}>
                 <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px', fontSize: '13px' }}>오답률 (%) 입력:</label>
                 <input 
-                  type="number" 
-                  value={formErrorRate} 
-                  onChange={(e) => setFormErrorRate(e.target.value)}
-                  placeholder="예: 85 (숫자만 입력)"
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                  type="number" value={formErrorRate} onChange={(e) => setFormErrorRate(e.target.value)}
+                  placeholder="예: 85 (숫자만 입력)" style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
                 />
               </div>
               <div style={{ flex: 1 }}>
@@ -1179,11 +1060,8 @@ function App() {
                   </select>
                 ) : (
                   <input 
-                    type="text" 
-                    value={formSubjAns} 
-                    onChange={(e) => setFormSubjAns(e.target.value)}
-                    placeholder="주관식 정답 (예: 15)"
-                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                    type="text" value={formSubjAns} onChange={(e) => setFormSubjAns(e.target.value)}
+                    placeholder="주관식 정답 (예: 15)" style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
                   />
                 )}
               </div>
@@ -1400,10 +1278,29 @@ function App() {
             <h3 style={{ margin: '0 0 10px 0', color: '#333' }}>🏆 명예의 전당 등록</h3>
             <p style={{ fontSize: '13px', color: '#666', marginBottom: '15px' }}>기록: <strong style={{ color: '#d9534f' }}>{rankModeType === 'set' ? `${Math.floor(rankScoreValue / 60)}분 ${rankScoreValue % 60}초` : `${rankScoreValue}초`}</strong></p>
             <label style={{ display: 'block', fontWeight: 'bold', fontSize: '13px', marginBottom: '5px' }}>학번과 이름 입력:</label>
-            <input type="text" placeholder="예: 30105 홍길동" value={studentNameInput} onChange={(e) => setStudentNameInput(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box', marginBottom: '15px', fontSize: '14px' }}/>
+            <input 
+              type="text" 
+              placeholder="예: 30105 홍길동" 
+              value={studentNameInput} 
+              onChange={(e) => setStudentNameInput(e.target.value)} 
+              disabled={isSubmittingRank} // 💡 전송 중일 때 입력창도 막음
+              style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box', marginBottom: '15px', fontSize: '14px', background: isSubmittingRank ? '#e9ecef' : '#fff' }}
+            />
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-              <button onClick={() => setRankModalOpen(false)} style={{ padding: '8px 14px', background: '#6c757d', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>취소</button>
-              <button onClick={submitRankingData} style={{ padding: '8px 14px', background: '#28a745', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>등록하기</button>
+              <button 
+                onClick={() => setRankModalOpen(false)} 
+                disabled={isSubmittingRank}
+                style={{ padding: '8px 14px', background: '#6c757d', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+              >
+                취소
+              </button>
+              <button 
+                onClick={submitRankingData} 
+                disabled={isSubmittingRank} // 💡 전송 중일 때 버튼 막음 (연타 방지)
+                style={{ padding: '8px 14px', background: isSubmittingRank ? '#8fc49c' : '#28a745', color: '#fff', border: 'none', borderRadius: '4px', cursor: isSubmittingRank ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
+              >
+                {isSubmittingRank ? '등록 중...' : '등록하기'}
+              </button>
             </div>
           </div>
         </div>

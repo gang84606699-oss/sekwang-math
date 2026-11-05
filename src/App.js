@@ -54,8 +54,9 @@ function App() {
   const [editingRank, setEditingRank] = useState(null);
   const [editRankName, setEditRankName] = useState('');
   
-  // 💡 타임어택 펼쳐보기 상태 추가
-  const [isTaRankExpanded, setIsTaRankExpanded] = useState(false);
+  // 💡 타임어택 랭킹 페이지네이션 상태 (기본 1페이지, 한 페이지당 15명)
+  const [taRankCurrentPage, setTaRankCurrentPage] = useState(1);
+  const taRankItemsPerPage = 15;
 
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminPw, setAdminPw] = useState('');
@@ -569,6 +570,13 @@ function App() {
     ? Array.from(new Set(problems.map(p => String(p.세부단원 || '').trim()).filter(Boolean)))
     : Array.from(new Set(taSelectedSubjs.flatMap(subj => UNIT_MAP[subj] || [])));
 
+  // 💡 타임어택 랭킹 페이지네이션 계산 로직
+  const taRankingsFiltered = rankings.filter(r => r.모드 === '타임어택').sort((a, b) => Number(a.기록) - Number(b.기록));
+  const taRankTotalPages = Math.max(1, Math.ceil(taRankingsFiltered.length / taRankItemsPerPage));
+  const indexOfLastTaRank = taRankCurrentPage * taRankItemsPerPage;
+  const indexOfFirstTaRank = indexOfLastTaRank - taRankItemsPerPage;
+  const currentDisplayedTaRankings = taRankingsFiltered.slice(indexOfFirstTaRank, indexOfLastTaRank);
+
   return (
     <div className="App" style={{ padding: '20px', fontFamily: 'sans-serif', maxWidth: '1200px', margin: '0 auto', background: '#f8f9fa', minHeight: '100vh' }}>
       
@@ -949,10 +957,9 @@ function App() {
         <h2 style={{ margin: '0 0 15px 0', color: '#333', display: 'flex', alignItems: 'center', gap: '8px' }}>👑 세광고 명예의 전당 (랭킹 시스템)</h2>
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           
-          {/* 💡 세부 세트 랭킹 박스는 삭제하고 타임어택 랭킹만 중앙 배치 */}
           <div style={{ width: '100%', maxWidth: '800px', background: '#f8f9fa', padding: '15px', borderRadius: '8px', border: '1px solid #e9ecef' }}>
             <h4 style={{ margin: '0 0 10px 0', color: '#dc3545', textAlign: 'center' }}>⚡ 타임어택 랭킹</h4>
-            {rankings.filter(r => r.모드 === '타임어택').length === 0 ? (
+            {taRankingsFiltered.length === 0 ? (
               <p style={{ color: '#777', fontSize: '13px', textAlign: 'center' }}>등록된 타임어택 기록이 없습니다.</p>
             ) : (
               <>
@@ -967,13 +974,14 @@ function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {rankings.filter(r => r.모드 === '타임어택')
-                      .sort((a, b) => Number(a.기록) - Number(b.기록))
-                      // 💡 15개 또는 전체 표시 로직
-                      .slice(0, isTaRankExpanded ? rankings.length : 15)
-                      .map((item, idx) => (
+                    {currentDisplayedTaRankings.map((item, idx) => {
+                      // 💡 실제 순위 계산 (예: 2페이지 첫 항목은 16위)
+                      const actualRank = indexOfFirstTaRank + idx + 1;
+                      return (
                         <tr key={idx} style={{ borderBottom: '1px solid #dee2e6', textAlign: 'center' }}>
-                          <td style={{ padding: '10px', fontWeight: 'bold' }}>{idx === 0 ? '🥇 1위' : idx === 1 ? '🥈 2위' : idx === 2 ? '🥉 3위' : `${idx + 1}위`}</td>
+                          <td style={{ padding: '10px', fontWeight: 'bold' }}>
+                            {actualRank === 1 ? '🥇 1위' : actualRank === 2 ? '🥈 2위' : actualRank === 3 ? '🥉 3위' : `${actualRank}위`}
+                          </td>
                           {editingRank === item.rowIndex ? (
                             <>
                               <td style={{ padding: '6px' }}><input type="text" value={editRankName} onChange={(e) => setEditRankName(e.target.value)} style={{ width: '120px', padding: '5px', textAlign: 'center' }}/></td>
@@ -998,28 +1006,73 @@ function App() {
                             </>
                           )}
                         </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
                 
-                {/* 💡 펼쳐보기 버튼 (데이터가 15개 초과일 때만 렌더링) */}
-                {rankings.filter(r => r.모드 === '타임어택').length > 15 && (
-                  <div style={{ textAlign: 'center', marginTop: '15px' }}>
+                {/* 💡 타임어택 랭킹 페이지네이션 UI */}
+                {taRankTotalPages > 1 && (
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', marginTop: '20px' }}>
                     <button 
-                      onClick={() => setIsTaRankExpanded(!isTaRankExpanded)}
-                      style={{
-                        padding: '10px 20px',
-                        backgroundColor: '#fff',
-                        border: '1px solid #ced4da',
-                        borderRadius: '20px',
-                        cursor: 'pointer',
-                        fontSize: '13px',
-                        fontWeight: 'bold',
-                        color: '#495057',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-                      }}
+                      onClick={() => setTaRankCurrentPage(1)} 
+                      disabled={taRankCurrentPage === 1}
+                      style={{ padding: '6px 12px', borderRadius: '4px', border: '1px solid #ccc', background: taRankCurrentPage === 1 ? '#e9ecef' : '#f8f9fa', cursor: taRankCurrentPage === 1 ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 'bold', color: '#495057' }}
                     >
-                      {isTaRankExpanded ? '접기 ▲' : '16위 이하 펼쳐보기 ▼'}
+                      처음
+                    </button>
+                    <button 
+                      onClick={() => setTaRankCurrentPage(p => p - 1)} 
+                      disabled={taRankCurrentPage === 1}
+                      style={{ padding: '6px 12px', borderRadius: '4px', border: '1px solid #ccc', background: taRankCurrentPage === 1 ? '#e9ecef' : '#f8f9fa', cursor: taRankCurrentPage === 1 ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 'bold', color: '#495057' }}
+                    >
+                      이전
+                    </button>
+
+                    {(() => {
+                      let startPage = Math.max(1, taRankCurrentPage - 2);
+                      let endPage = Math.min(taRankTotalPages, startPage + 4);
+                      if (endPage - startPage < 4) {
+                        startPage = Math.max(1, endPage - 4);
+                      }
+                      
+                      const pages = [];
+                      for (let i = startPage; i <= endPage; i++) {
+                        pages.push(
+                          <button
+                            key={i}
+                            onClick={() => setTaRankCurrentPage(i)}
+                            style={{
+                              padding: '6px 12px',
+                              borderRadius: '4px',
+                              border: taRankCurrentPage === i ? '1px solid #007bff' : '1px solid #ccc',
+                              background: taRankCurrentPage === i ? '#007bff' : '#fff',
+                              color: taRankCurrentPage === i ? '#fff' : '#333',
+                              cursor: 'pointer',
+                              fontSize: '12px',
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            {i}
+                          </button>
+                        );
+                      }
+                      return pages;
+                    })()}
+
+                    <button 
+                      onClick={() => setTaRankCurrentPage(p => p + 1)} 
+                      disabled={taRankCurrentPage === taRankTotalPages}
+                      style={{ padding: '6px 12px', borderRadius: '4px', border: '1px solid #ccc', background: taRankCurrentPage === taRankTotalPages ? '#e9ecef' : '#f8f9fa', cursor: taRankCurrentPage === taRankTotalPages ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 'bold', color: '#495057' }}
+                    >
+                      다음
+                    </button>
+                    <button 
+                      onClick={() => setTaRankCurrentPage(taRankTotalPages)} 
+                      disabled={taRankCurrentPage === taRankTotalPages}
+                      style={{ padding: '6px 12px', borderRadius: '4px', border: '1px solid #ccc', background: taRankCurrentPage === taRankTotalPages ? '#e9ecef' : '#f8f9fa', cursor: taRankCurrentPage === taRankTotalPages ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 'bold', color: '#495057' }}
+                    >
+                      끝
                     </button>
                   </div>
                 )}

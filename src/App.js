@@ -5,7 +5,6 @@ import './App.css';
 function App() {
   const [problems, setProblems] = useState([]);
   const [rankings, setRankings] = useState([]);
-  const [loading, setLoading] = useState(true);
   
   const [userAnswers, setUserAnswers] = useState({});
   const [showResults, setShowResults] = useState({});
@@ -108,6 +107,7 @@ function App() {
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -139,7 +139,6 @@ function App() {
       .then(response => {
         setProblems(response.data.problems || []);
         setRankings(response.data.rankings || []);
-        setLoading(false);
         if (response.data.problems && response.data.problems.length > 0) {
           const lastId = Number(response.data.problems[response.data.problems.length - 1].문제ID) || 260901;
           setCustomId(String(lastId + 1));
@@ -149,7 +148,6 @@ function App() {
       })
       .catch(error => {
         console.error('데이터 로드 실패:', error);
-        setLoading(false);
       });
   };
 
@@ -436,15 +434,14 @@ function App() {
   const availableUnits = selectedSubjects.length > 0 ? Array.from(new Set(selectedSubjects.flatMap(subj => UNIT_MAP[subj] || []))) : Array.from(new Set(problems.map(p => p.세부단원).filter(Boolean)));
   const allSetChecked = isRandomMode && randomProblems.length > 0 && randomProblems.every((_, idx) => showResults[idx]);
   
-  // 💡 랭킹 데이터 가공 (문제은행의 오답률 매칭 및 5개 항목 구성)
   const enrichedRankings = rankings
-    .filter(r => r['모드'] === '타임어택') // '타임어택' 모드의 기록만 필터링
+    .filter(r => r['모드'] === '타임어택')
     .map(r => {
       const problemId = String(r['세부정보'] || '').replace('ID:', '').trim();
       const problemInfo = problems.find(p => String(p.문제ID) === problemId);
       const difficulty = problemInfo && problemInfo.오답률 !== undefined && problemInfo.오답률 !== '' 
         ? Number(problemInfo.오답률) 
-        : 0; // 오답률이 없으면 0 처리
+        : 0;
       
       return {
         ...r,
@@ -454,7 +451,6 @@ function App() {
       };
     });
 
-  // 💡 왼쪽: 난이도 랭킹 (오답률 높은 순 -> 동점 시 시간 빠른 순)
   const difficultyRankings = [...enrichedRankings].sort((a, b) => {
     if (b.difficulty !== a.difficulty) {
       return b.difficulty - a.difficulty; 
@@ -462,7 +458,6 @@ function App() {
     return a.time - b.time;
   });
 
-  // 💡 오른쪽: 타임어택 랭킹 (시간 빠른 순 -> 동점 시 오답률 높은 순)
   const timeRankings = [...enrichedRankings].sort((a, b) => {
     if (a.time !== b.time) {
       return a.time - b.time;
@@ -470,7 +465,6 @@ function App() {
     return b.difficulty - a.difficulty;
   });
 
-  // 랭킹 페이지네이션 로직 적용
   const rankTotalItems = Math.max(difficultyRankings.length, timeRankings.length);
   const rankTotalPages = Math.ceil(rankTotalItems / rankItemsPerPage) || 1;
   const indexOfLastRank = rankCurrentPage * rankItemsPerPage;

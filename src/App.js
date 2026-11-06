@@ -10,25 +10,21 @@ function App() {
   const [userAnswers, setUserAnswers] = useState({});
   const [showResults, setShowResults] = useState({});
   
-  // 검색 및 필터 상태
   const [searchKeyword, setSearchKeyword] = useState('');
   const [selectedSubjects, setSelectedSubjects] = useState([]);
   const [selectedUnits, setSelectedUnits] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
   const [selectedGrades, setSelectedGrades] = useState([]);
   
-  // 일반 문제 리스트 페이지네이션 상태
   const [currentPage, setCurrentPage] = useState(1);
   const problemsPerPage = 5; 
   
-  // 랜덤 모드 & 시간 측정 상태
   const [isRandomMode, setIsRandomMode] = useState(false);
   const [randomCount, setRandomCount] = useState(5);
   const [randomProblems, setRandomProblems] = useState([]);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [timerActive, setTimerActive] = useState(false);
 
-  // 타임어택 모드 상태
   const [isTimeAttackMode, setIsTimeAttackMode] = useState(false);
   const [taStep, setTaStep] = useState('select'); 
   const [taSubjMode, setTaSubjMode] = useState('all'); 
@@ -44,7 +40,6 @@ function App() {
   const [taTime, setTaTime] = useState(0);
   const [taTimerActive, setTaTimerActive] = useState(false);
 
-  // 랭킹/관리자 상태
   const [rankModalOpen, setRankModalOpen] = useState(false);
   const [rankModeType, setRankModeType] = useState('');
   const [rankScoreValue, setRankScoreValue] = useState(0);
@@ -73,12 +68,10 @@ function App() {
   const [isEditing, setIsEditing] = useState(false);
   const [processing, setProcessing] = useState(false);
 
-  // 피드백 모달
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [feedbackTargetId, setFeedbackTargetId] = useState('');
   const [feedbackText, setFeedbackText] = useState('');
 
-  // Apps Script 주소
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbzEMHYAPF2V1tzJFzeqTXY4-ce5C_w20rxOz5mqVIpTkcM-9kEehg5etgh3X33a35rxRQ/exec';
 
   const derivedSubjects = Array.from(new Set(problems.map(p => String(p.과목 || '').trim()).filter(Boolean)));
@@ -445,19 +438,19 @@ function App() {
   
   // 💡 랭킹 데이터 가공 (문제은행의 오답률 매칭 및 5개 항목 구성)
   const enrichedRankings = rankings
-    .filter(r => r.모드 === '타임어택') // 타임어택 기록만 대상으로 함
+    .filter(r => r['모드'] === '타임어택') // '타임어택' 모드의 기록만 필터링
     .map(r => {
-      const problemId = String(r.세부정보 || '').replace('ID:', '').trim();
+      const problemId = String(r['세부정보'] || '').replace('ID:', '').trim();
       const problemInfo = problems.find(p => String(p.문제ID) === problemId);
       const difficulty = problemInfo && problemInfo.오답률 !== undefined && problemInfo.오답률 !== '' 
         ? Number(problemInfo.오답률) 
-        : 0;
+        : 0; // 오답률이 없으면 0 처리
       
       return {
         ...r,
         actualProblemId: problemId,
         difficulty: difficulty,
-        time: Number(r.기록) || 0
+        time: Number(r['기록']) || 0
       };
     });
 
@@ -496,7 +489,6 @@ function App() {
   return (
     <div className="App" style={{ padding: '20px', fontFamily: 'sans-serif', maxWidth: '1200px', margin: '0 auto', background: '#f8f9fa', minHeight: '100vh' }}>
       
-      {/* 상단 타이틀 */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div></div>
         <div style={{ textAlign: 'center', flex: 1 }}>
@@ -523,7 +515,6 @@ function App() {
 
       <hr style={{ margin: '15px 0' }} />
 
-      {/* 검색 및 필터 패널 */}
       <div style={{ background: '#fff', padding: '20px', borderRadius: '10px', marginBottom: '25px', boxShadow: '0 2px 4px rgba(0,0,0,0.04)', border: '1px solid #e9ecef', display: 'flex', flexDirection: 'column', gap: '15px', alignItems: 'flex-start', textAlign: 'left' }}>
         
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', width: '100%' }}>
@@ -662,7 +653,6 @@ function App() {
         </div>
       </div>
 
-      {/* ⏱️ 랜덤 세트 타이머 */}
       {isRandomMode && (
         <div style={{ background: '#fff3cd', border: '1px solid #ffeeba', padding: '15px 20px', borderRadius: '8px', marginBottom: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <div>
@@ -685,7 +675,6 @@ function App() {
         </div>
       )}
 
-      {/* ⚡ 타임어택 카테고리 선택 및 플레이 화면 */}
       {isTimeAttackMode && (
         <div style={{ border: '2px solid #dc3545', padding: '25px', borderRadius: '12px', marginBottom: '30px', background: '#fff', boxShadow: '0 4px 12px rgba(220,53,69,0.15)' }}>
           
@@ -823,13 +812,13 @@ function App() {
         </div>
       )}
 
-      {/* 🏆 💡 새롭게 구성된 명예의 전당 (좌우 분할) */}
+      {/* 🏆 랭킹 시스템 (5열 포맷 일괄 적용) */}
       <div style={{ background: '#fff', padding: '25px', borderRadius: '12px', marginBottom: '35px', boxShadow: '0 4px 12px rgba(0,0,0,0.06)', border: '1px solid #e9ecef' }}>
         <h2 style={{ margin: '0 0 15px 0', color: '#333', display: 'flex', alignItems: 'center', gap: '8px' }}>👑 세광고 명예의 전당 (랭킹 시스템)</h2>
         
         <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap', justifyContent: 'center' }}>
           
-          {/* 💡 왼쪽: 난이도 랭킹 (오답률 기준) */}
+          {/* 왼쪽: 난이도 랭킹 */}
           <div style={{ flex: 1, minWidth: '350px', background: '#f8f9fa', padding: '15px', borderRadius: '8px', border: '1px solid #e9ecef' }}>
             <h4 style={{ margin: '0 0 10px 0', color: '#e74c3c', textAlign: 'center' }}>🔥 난이도 랭킹</h4>
             {currentDiffData.length === 0 ? (
@@ -885,7 +874,7 @@ function App() {
             )}
           </div>
 
-          {/* 💡 오른쪽: 타임어택 랭킹 (시간 기준) */}
+          {/* 오른쪽: 타임어택 랭킹 */}
           <div style={{ flex: 1, minWidth: '350px', background: '#f8f9fa', padding: '15px', borderRadius: '8px', border: '1px solid #e9ecef' }}>
             <h4 style={{ margin: '0 0 10px 0', color: '#e74c3c', textAlign: 'center' }}>⚡ 타임어택 랭킹</h4>
             {currentTimeData.length === 0 ? (
@@ -942,7 +931,7 @@ function App() {
           </div>
         </div>
 
-        {/* 💡 랭킹 통합 내비게이션 바 (가운데 정렬) */}
+        {/* 랭킹 통합 내비게이션 바 */}
         {rankTotalPages > 1 && (
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', marginTop: '25px' }}>
             <button 
@@ -1097,7 +1086,7 @@ function App() {
         </div>
       )}
       
-      {/* 💡 일반 문제 리스트 영역 */}
+      {/* 일반 문제 리스트 영역 */}
       {!isTimeAttackMode && (
         loading ? (
           <p style={{ textAlign: 'center' }}>기출문제 데이터를 불러오는 중입니다...</p>
@@ -1220,7 +1209,7 @@ function App() {
               );
             })}
             
-            {/* 💡 향상된 다이내믹 페이지네이션 UI 바 */}
+            {/* 향상된 다이내믹 페이지네이션 UI 바 */}
             {totalPages > 1 && (
               <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '30px', paddingBottom: '20px' }}>
                 <button 

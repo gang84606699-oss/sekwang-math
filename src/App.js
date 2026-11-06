@@ -5,6 +5,7 @@ import './App.css';
 function App() {
   const [problems, setProblems] = useState([]);
   const [rankings, setRankings] = useState([]);
+  const [loading, setLoading] = useState(true);
   
   const [userAnswers, setUserAnswers] = useState({});
   const [showResults, setShowResults] = useState({});
@@ -138,7 +139,17 @@ function App() {
     axios.get(GAS_URL)
       .then(response => {
         setProblems(response.data.problems || []);
-        setRankings(response.data.rankings || []);
+        // 💡 백엔드에서 받아온 랭킹 데이터의 키(Key) 값들에 있는 공백을 모두 제거해 통일시킵니다.
+        const cleanedRankings = (response.data.rankings || []).map(r => {
+          const newObj = {};
+          for (const key in r) {
+            newObj[key.trim()] = r[key];
+          }
+          return newObj;
+        });
+        setRankings(cleanedRankings);
+        
+        setLoading(false);
         if (response.data.problems && response.data.problems.length > 0) {
           const lastId = Number(response.data.problems[response.data.problems.length - 1].문제ID) || 260901;
           setCustomId(String(lastId + 1));
@@ -148,6 +159,7 @@ function App() {
       })
       .catch(error => {
         console.error('데이터 로드 실패:', error);
+        setLoading(false);
       });
   };
 
@@ -434,8 +446,12 @@ function App() {
   const availableUnits = selectedSubjects.length > 0 ? Array.from(new Set(selectedSubjects.flatMap(subj => UNIT_MAP[subj] || []))) : Array.from(new Set(problems.map(p => p.세부단원).filter(Boolean)));
   const allSetChecked = isRandomMode && randomProblems.length > 0 && randomProblems.every((_, idx) => showResults[idx]);
   
+  // 💡 랭킹 데이터 필터링 조건 완화 (공백 제거나 문자열 포함 등 느슨하게 매칭)
   const enrichedRankings = rankings
-    .filter(r => r['모드'] === '타임어택')
+    .filter(r => {
+      const modeStr = String(r['모드'] || '').replace(/\s+/g, '');
+      return modeStr.includes('타임어택');
+    })
     .map(r => {
       const problemId = String(r['세부정보'] || '').replace('ID:', '').trim();
       const problemInfo = problems.find(p => String(p.문제ID) === problemId);
@@ -447,7 +463,8 @@ function App() {
         ...r,
         actualProblemId: problemId,
         difficulty: difficulty,
-        time: Number(r['기록']) || 0
+        time: Number(r['기록']) || 0,
+        학번이름: String(r['학번이름'] || '') // 명시적으로 한 번 더 잡아줌
       };
     });
 
@@ -479,10 +496,10 @@ function App() {
     if (rank === 3) return '🥉 3위';
     return `${rank}위`;
   };
-
   return (
     <div className="App" style={{ padding: '20px', fontFamily: 'sans-serif', maxWidth: '1200px', margin: '0 auto', background: '#f8f9fa', minHeight: '100vh' }}>
       
+      {/* 상단 타이틀 */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div></div>
         <div style={{ textAlign: 'center', flex: 1 }}>
@@ -509,6 +526,7 @@ function App() {
 
       <hr style={{ margin: '15px 0' }} />
 
+      {/* 검색 및 필터 패널 */}
       <div style={{ background: '#fff', padding: '20px', borderRadius: '10px', marginBottom: '25px', boxShadow: '0 2px 4px rgba(0,0,0,0.04)', border: '1px solid #e9ecef', display: 'flex', flexDirection: 'column', gap: '15px', alignItems: 'flex-start', textAlign: 'left' }}>
         
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', width: '100%' }}>
@@ -647,6 +665,7 @@ function App() {
         </div>
       </div>
 
+      {/* ⏱️ 랜덤 세트 타이머 */}
       {isRandomMode && (
         <div style={{ background: '#fff3cd', border: '1px solid #ffeeba', padding: '15px 20px', borderRadius: '8px', marginBottom: '25px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <div>
@@ -669,6 +688,7 @@ function App() {
         </div>
       )}
 
+      {/* ⚡ 타임어택 카테고리 선택 및 플레이 화면 */}
       {isTimeAttackMode && (
         <div style={{ border: '2px solid #dc3545', padding: '25px', borderRadius: '12px', marginBottom: '30px', background: '#fff', boxShadow: '0 4px 12px rgba(220,53,69,0.15)' }}>
           

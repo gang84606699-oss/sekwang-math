@@ -4,11 +4,7 @@ import './App.css';
 
 function App() {
   const [problems, setProblems] = useState([]);
-  
-  // 💡 GAS 백엔드 변경에 맞춰 랭킹 데이터를 두 가지로 분리해서 받습니다.
-  const [difficultyData, setDifficultyData] = useState([]);
-  const [timeData, setTimeData] = useState([]);
-  
+  const [rankings, setRankings] = useState([]);
   const [loading, setLoading] = useState(true);
   
   const [userAnswers, setUserAnswers] = useState({});
@@ -21,7 +17,7 @@ function App() {
   const [selectedTags, setSelectedTags] = useState([]);
   const [selectedGrades, setSelectedGrades] = useState([]);
   
-  // 일반 문제 리스트 페이지네이션 상태 (한 페이지당 5개)
+  // 일반 문제 리스트 페이지네이션 상태
   const [currentPage, setCurrentPage] = useState(1);
   const problemsPerPage = 5; 
   
@@ -55,13 +51,11 @@ function App() {
   const [rankDetailInfo, setRankDetailInfo] = useState('');
   const [studentNameInput, setStudentNameInput] = useState('');
   
-  // 💡 중복 등록 방지 (연타 방지) 상태
   const [isSubmittingRank, setIsSubmittingRank] = useState(false);
 
   const [editingRank, setEditingRank] = useState(null);
   const [editRankName, setEditRankName] = useState('');
   
-  // 💡 명예의 전당(랭킹) 페이지네이션 상태 (기본 1페이지, 한 페이지당 10명 제한)
   const [rankCurrentPage, setRankCurrentPage] = useState(1);
   const rankItemsPerPage = 10;
 
@@ -84,7 +78,7 @@ function App() {
   const [feedbackTargetId, setFeedbackTargetId] = useState('');
   const [feedbackText, setFeedbackText] = useState('');
 
-  // Apps Script 주소 (본인의 URL로 유지)
+  // Apps Script 주소
   const GAS_URL = 'https://script.google.com/macros/s/AKfycbzEMHYAPF2V1tzJFzeqTXY4-ce5C_w20rxOz5mqVIpTkcM-9kEehg5etgh3X33a35rxRQ/exec';
 
   const derivedSubjects = Array.from(new Set(problems.map(p => String(p.과목 || '').trim()).filter(Boolean)));
@@ -150,10 +144,8 @@ function App() {
   const fetchData = () => {
     axios.get(GAS_URL)
       .then(response => {
-        // 💡 GAS 백엔드에서 변경된 3가지 데이터를 각각 분리해서 받습니다.
         setProblems(response.data.problems || []);
-        setDifficultyData(response.data.difficultyData || []);
-        setTimeData(response.data.timeData || []);
+        setRankings(response.data.rankings || []);
         setLoading(false);
         if (response.data.problems && response.data.problems.length > 0) {
           const lastId = Number(response.data.problems[response.data.problems.length - 1].문제ID) || 260901;
@@ -198,7 +190,6 @@ function App() {
     }
   };
 
-  // 필터 토글 로직
   const toggleSubjectFilter = (subj) => {
     if (selectedSubjects.includes(subj)) {
       setSelectedSubjects(selectedSubjects.filter(s => s !== subj));
@@ -315,22 +306,14 @@ function App() {
     setRankModalOpen(true);
   };
 
-  // 💡 랭킹 중복 등록(연타) 방지 로직 적용
   const submitRankingData = () => {
     if (!studentNameInput.trim()) return alert('학번과 이름을 입력해주세요! (예: 30105 홍길동)');
-    
-    // 이미 전송 중이면 함수 실행을 막음 (연타 방지)
     if (isSubmittingRank) return;
-
-    setIsSubmittingRank(true); // 버튼 비활성화 상태로 전환
+    setIsSubmittingRank(true); 
 
     const formData = new URLSearchParams();
     formData.append('action', 'addRank');
-    
-    // GAS 백엔드 분류 기준을 위해 모드 값을 명확히 지정
-    const exactMode = rankModeType === 'set' ? '난이도' : '타임어택';
-    
-    formData.append('모드', exactMode);
+    formData.append('모드', rankModeType === 'set' ? `랜덤 ${randomProblems.length}문항` : '타임어택');
     formData.append('학번이름', studentNameInput.trim());
     formData.append('기록', rankScoreValue);
     formData.append('세부정보', rankDetailInfo);
@@ -345,11 +328,10 @@ function App() {
         alert('랭킹 등록 중 오류가 발생했습니다.');
       })
       .finally(() => {
-        setIsSubmittingRank(false); // 통신 성공/실패 여부에 상관없이 다시 버튼 활성화
+        setIsSubmittingRank(false); 
       });
   };
 
-  // 랭킹 수정 및 삭제 로직 (관리자용)
   const handleSaveRankEdit = (item) => {
     const formData = new URLSearchParams();
     formData.append('action', 'updateRankNameOnly');
@@ -366,7 +348,7 @@ function App() {
   };
 
   const handleDeleteRank = (item) => {
-    if (!window.confirm(`[${item.name || item.학번이름}]의 기록을 삭제하시겠습니까?`)) return;
+    if (!window.confirm(`[${item.학번이름}]의 기록을 삭제하시겠습니까?`)) return;
     const formData = new URLSearchParams();
     formData.append('action', 'deleteRank');
     formData.append('rowIndex', item.rowIndex);
@@ -378,7 +360,6 @@ function App() {
       .catch(() => alert('삭제 중 오류가 발생했습니다.'));
   };
 
-  // 기출문제 등록 및 수정 로직
   const handleSubmitProblem = (e) => {
     e.preventDefault();
     if (!customId) return alert('문제 ID를 입력해주세요!');
@@ -461,18 +442,50 @@ function App() {
 
   const availableUnits = selectedSubjects.length > 0 ? Array.from(new Set(selectedSubjects.flatMap(subj => UNIT_MAP[subj] || []))) : Array.from(new Set(problems.map(p => p.세부단원).filter(Boolean)));
   const allSetChecked = isRandomMode && randomProblems.length > 0 && randomProblems.every((_, idx) => showResults[idx]);
-  const taAvailableUnits = taSubjMode === 'all' || taSelectedSubjs.length === 0 ? Array.from(new Set(problems.map(p => String(p.세부단원 || '').trim()).filter(Boolean))) : Array.from(new Set(taSelectedSubjs.flatMap(subj => UNIT_MAP[subj] || [])));
+  
+  // 💡 랭킹 데이터 가공 (문제은행의 오답률 매칭 및 5개 항목 구성)
+  const enrichedRankings = rankings
+    .filter(r => r.모드 === '타임어택') // 타임어택 기록만 대상으로 함
+    .map(r => {
+      const problemId = String(r.세부정보 || '').replace('ID:', '').trim();
+      const problemInfo = problems.find(p => String(p.문제ID) === problemId);
+      const difficulty = problemInfo && problemInfo.오답률 !== undefined && problemInfo.오답률 !== '' 
+        ? Number(problemInfo.오답률) 
+        : 0;
+      
+      return {
+        ...r,
+        actualProblemId: problemId,
+        difficulty: difficulty,
+        time: Number(r.기록) || 0
+      };
+    });
 
-  // 💡 랭킹 페이지네이션 로직 적용 (10개씩 분할 및 두 배열 기준 최대 페이지수 산출)
-  const rankTotalItems = Math.max(difficultyData?.length || 0, timeData?.length || 0);
+  // 💡 왼쪽: 난이도 랭킹 (오답률 높은 순 -> 동점 시 시간 빠른 순)
+  const difficultyRankings = [...enrichedRankings].sort((a, b) => {
+    if (b.difficulty !== a.difficulty) {
+      return b.difficulty - a.difficulty; 
+    }
+    return a.time - b.time;
+  });
+
+  // 💡 오른쪽: 타임어택 랭킹 (시간 빠른 순 -> 동점 시 오답률 높은 순)
+  const timeRankings = [...enrichedRankings].sort((a, b) => {
+    if (a.time !== b.time) {
+      return a.time - b.time;
+    }
+    return b.difficulty - a.difficulty;
+  });
+
+  // 랭킹 페이지네이션 로직 적용
+  const rankTotalItems = Math.max(difficultyRankings.length, timeRankings.length);
   const rankTotalPages = Math.ceil(rankTotalItems / rankItemsPerPage) || 1;
   const indexOfLastRank = rankCurrentPage * rankItemsPerPage;
   const indexOfFirstRank = indexOfLastRank - rankItemsPerPage;
   
-  const currentDiffData = difficultyData?.slice(indexOfFirstRank, indexOfLastRank) || [];
-  const currentTimeData = timeData?.slice(indexOfFirstRank, indexOfLastRank) || [];
+  const currentDiffData = difficultyRankings.slice(indexOfFirstRank, indexOfLastRank);
+  const currentTimeData = timeRankings.slice(indexOfFirstRank, indexOfLastRank);
 
-  // 1~3위 뱃지 헬퍼 함수
   const renderRankBadge = (rank) => {
     if (rank === 1) return '🥇 1위';
     if (rank === 2) return '🥈 2위';
@@ -814,22 +827,22 @@ function App() {
       <div style={{ background: '#fff', padding: '25px', borderRadius: '12px', marginBottom: '35px', boxShadow: '0 4px 12px rgba(0,0,0,0.06)', border: '1px solid #e9ecef' }}>
         <h2 style={{ margin: '0 0 15px 0', color: '#333', display: 'flex', alignItems: 'center', gap: '8px' }}>👑 세광고 명예의 전당 (랭킹 시스템)</h2>
         
-        {/* 좌우 Flexbox 컨테이너 */}
         <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap', justifyContent: 'center' }}>
           
-          {/* 왼쪽: 난이도 랭킹 */}
+          {/* 💡 왼쪽: 난이도 랭킹 (오답률 기준) */}
           <div style={{ flex: 1, minWidth: '350px', background: '#f8f9fa', padding: '15px', borderRadius: '8px', border: '1px solid #e9ecef' }}>
             <h4 style={{ margin: '0 0 10px 0', color: '#e74c3c', textAlign: 'center' }}>🔥 난이도 랭킹</h4>
-            {difficultyData.length === 0 ? (
-              <p style={{ color: '#777', fontSize: '13px', textAlign: 'center' }}>등록된 난이도 기록이 없습니다.</p>
+            {currentDiffData.length === 0 ? (
+              <p style={{ color: '#777', fontSize: '13px', textAlign: 'center' }}>등록된 기록이 없습니다.</p>
             ) : (
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', textAlign: 'center' }}>
                 <thead>
                   <tr style={{ background: '#e9ecef' }}>
                     <th style={{ padding: '10px' }}>순위</th>
-                    <th style={{ padding: '10px' }}>학번 이름</th>
+                    <th style={{ padding: '10px' }}>이름</th>
                     <th style={{ padding: '10px' }}>문제</th>
-                    <th style={{ padding: '10px' }}>오답률</th>
+                    <th style={{ padding: '10px' }}>난이도</th>
+                    <th style={{ padding: '10px' }}>시간</th>
                     {isAdmin && <th style={{ padding: '10px' }}>관리</th>}
                   </tr>
                 </thead>
@@ -841,23 +854,24 @@ function App() {
                         <td style={{ padding: '10px', fontWeight: 'bold' }}>{renderRankBadge(actualRank)}</td>
                         {editingRank === item.rowIndex ? (
                           <>
-                            <td style={{ padding: '6px' }}><input type="text" value={editRankName} onChange={(e) => setEditRankName(e.target.value)} style={{ width: '90px', padding: '4px', textAlign: 'center' }}/></td>
-                            <td style={{ padding: '6px' }}>{item.problemId.replace('ID: ', '')}</td>
-                            <td style={{ padding: '6px' }}>{item.score}%</td>
+                            <td style={{ padding: '6px' }}><input type="text" value={editRankName} onChange={(e) => setEditRankName(e.target.value)} style={{ width: '70px', padding: '4px', textAlign: 'center' }}/></td>
+                            <td style={{ padding: '6px' }}>{item.actualProblemId}</td>
+                            <td style={{ padding: '6px' }}>{item.difficulty}%</td>
+                            <td style={{ padding: '6px' }}>{item.time}초</td>
                             <td style={{ padding: '6px' }}>
-                              <button onClick={() => handleSaveRankEdit(item)} style={{ background: '#28a745', color: '#fff', border: 'none', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer', marginRight: '2px', fontSize: '11px' }}>저장</button>
-                              <button onClick={() => setEditingRank(null)} style={{ background: '#6c757d', color: '#fff', border: 'none', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>취소</button>
+                              <button onClick={() => handleSaveRankEdit(item)} style={{ background: '#28a745', color: '#fff', border: 'none', padding: '4px 4px', borderRadius: '4px', cursor: 'pointer', marginRight: '2px', fontSize: '11px' }}>저장</button>
+                              <button onClick={() => setEditingRank(null)} style={{ background: '#6c757d', color: '#fff', border: 'none', padding: '4px 4px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>취소</button>
                             </td>
                           </>
                         ) : (
                           <>
-                            <td style={{ padding: '10px' }}>{item.name}</td>
-                            <td style={{ padding: '10px' }}>{item.problemId.replace('ID: ', '')}</td>
-                            {/* 💡 점 대신 % 출력하도록 변경됨 */}
-                            <td style={{ padding: '10px', fontWeight: 'bold', color: '#e74c3c' }}>{item.score}%</td>
+                            <td style={{ padding: '10px' }}>{item.학번이름}</td>
+                            <td style={{ padding: '10px' }}>{item.actualProblemId}</td>
+                            <td style={{ padding: '10px', fontWeight: 'bold', color: '#e74c3c' }}>{item.difficulty}%</td>
+                            <td style={{ padding: '10px' }}>{item.time}초</td>
                             {isAdmin && (
                               <td style={{ padding: '6px' }}>
-                                <button onClick={() => { setEditingRank(item.rowIndex); setEditRankName(item.name); }} style={{ background: '#ffc107', border: 'none', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer', marginRight: '4px', fontSize: '11px', fontWeight: 'bold' }}>수정</button>
+                                <button onClick={() => { setEditingRank(item.rowIndex); setEditRankName(item.학번이름); }} style={{ background: '#ffc107', border: 'none', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer', marginRight: '4px', fontSize: '11px', fontWeight: 'bold' }}>수정</button>
                                 <button onClick={() => handleDeleteRank(item)} style={{ background: '#dc3545', color: '#fff', border: 'none', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>삭제</button>
                               </td>
                             )}
@@ -871,18 +885,19 @@ function App() {
             )}
           </div>
 
-          {/* 오른쪽: 타임어택 랭킹 */}
+          {/* 💡 오른쪽: 타임어택 랭킹 (시간 기준) */}
           <div style={{ flex: 1, minWidth: '350px', background: '#f8f9fa', padding: '15px', borderRadius: '8px', border: '1px solid #e9ecef' }}>
             <h4 style={{ margin: '0 0 10px 0', color: '#e74c3c', textAlign: 'center' }}>⚡ 타임어택 랭킹</h4>
-            {timeData.length === 0 ? (
-              <p style={{ color: '#777', fontSize: '13px', textAlign: 'center' }}>등록된 타임어택 기록이 없습니다.</p>
+            {currentTimeData.length === 0 ? (
+              <p style={{ color: '#777', fontSize: '13px', textAlign: 'center' }}>등록된 기록이 없습니다.</p>
             ) : (
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', textAlign: 'center' }}>
                 <thead>
                   <tr style={{ background: '#e9ecef' }}>
                     <th style={{ padding: '10px' }}>순위</th>
-                    <th style={{ padding: '10px' }}>학번 이름</th>
+                    <th style={{ padding: '10px' }}>이름</th>
                     <th style={{ padding: '10px' }}>문제</th>
+                    <th style={{ padding: '10px' }}>난이도</th>
                     <th style={{ padding: '10px' }}>시간</th>
                     {isAdmin && <th style={{ padding: '10px' }}>관리</th>}
                   </tr>
@@ -895,22 +910,24 @@ function App() {
                         <td style={{ padding: '10px', fontWeight: 'bold' }}>{renderRankBadge(actualRank)}</td>
                         {editingRank === item.rowIndex ? (
                           <>
-                            <td style={{ padding: '6px' }}><input type="text" value={editRankName} onChange={(e) => setEditRankName(e.target.value)} style={{ width: '90px', padding: '4px', textAlign: 'center' }}/></td>
-                            <td style={{ padding: '6px' }}>{item.problemId.replace('ID: ', '')}</td>
+                            <td style={{ padding: '6px' }}><input type="text" value={editRankName} onChange={(e) => setEditRankName(e.target.value)} style={{ width: '70px', padding: '4px', textAlign: 'center' }}/></td>
+                            <td style={{ padding: '6px' }}>{item.actualProblemId}</td>
+                            <td style={{ padding: '6px' }}>{item.difficulty}%</td>
                             <td style={{ padding: '6px' }}>{item.time}초</td>
                             <td style={{ padding: '6px' }}>
-                              <button onClick={() => handleSaveRankEdit(item)} style={{ background: '#28a745', color: '#fff', border: 'none', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer', marginRight: '2px', fontSize: '11px' }}>저장</button>
-                              <button onClick={() => setEditingRank(null)} style={{ background: '#6c757d', color: '#fff', border: 'none', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>취소</button>
+                              <button onClick={() => handleSaveRankEdit(item)} style={{ background: '#28a745', color: '#fff', border: 'none', padding: '4px 4px', borderRadius: '4px', cursor: 'pointer', marginRight: '2px', fontSize: '11px' }}>저장</button>
+                              <button onClick={() => setEditingRank(null)} style={{ background: '#6c757d', color: '#fff', border: 'none', padding: '4px 4px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>취소</button>
                             </td>
                           </>
                         ) : (
                           <>
-                            <td style={{ padding: '10px' }}>{item.name}</td>
-                            <td style={{ padding: '10px' }}>{item.problemId.replace('ID: ', '')}</td>
+                            <td style={{ padding: '10px' }}>{item.학번이름}</td>
+                            <td style={{ padding: '10px' }}>{item.actualProblemId}</td>
+                            <td style={{ padding: '10px' }}>{item.difficulty}%</td>
                             <td style={{ padding: '10px', fontWeight: 'bold', color: '#e74c3c' }}>{item.time}초</td>
                             {isAdmin && (
                               <td style={{ padding: '6px' }}>
-                                <button onClick={() => { setEditingRank(item.rowIndex); setEditRankName(item.name); }} style={{ background: '#ffc107', border: 'none', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer', marginRight: '4px', fontSize: '11px', fontWeight: 'bold' }}>수정</button>
+                                <button onClick={() => { setEditingRank(item.rowIndex); setEditRankName(item.학번이름); }} style={{ background: '#ffc107', border: 'none', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer', marginRight: '4px', fontSize: '11px', fontWeight: 'bold' }}>수정</button>
                                 <button onClick={() => handleDeleteRank(item)} style={{ background: '#dc3545', color: '#fff', border: 'none', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>삭제</button>
                               </td>
                             )}
@@ -1284,7 +1301,7 @@ function App() {
               placeholder="예: 30105 홍길동" 
               value={studentNameInput} 
               onChange={(e) => setStudentNameInput(e.target.value)} 
-              disabled={isSubmittingRank} // 💡 전송 중일 때 입력창도 막음
+              disabled={isSubmittingRank}
               style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box', marginBottom: '15px', fontSize: '14px', background: isSubmittingRank ? '#e9ecef' : '#fff' }}
             />
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
@@ -1297,7 +1314,7 @@ function App() {
               </button>
               <button 
                 onClick={submitRankingData} 
-                disabled={isSubmittingRank} // 💡 전송 중일 때 버튼 막음 (연타 방지)
+                disabled={isSubmittingRank}
                 style={{ padding: '8px 14px', background: isSubmittingRank ? '#8fc49c' : '#28a745', color: '#fff', border: 'none', borderRadius: '4px', cursor: isSubmittingRank ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
               >
                 {isSubmittingRank ? '등록 중...' : '등록하기'}

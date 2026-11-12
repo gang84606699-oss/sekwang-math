@@ -504,8 +504,8 @@ function App() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div></div>
         <div style={{ textAlign: 'center', flex: 1 }}>
-          <h1 style={{ color: '#333', margin: 0, fontSize: '26px' }}>광기분: 세광고 학생들의 기출분석</h1>
-          <p style={{ color: '#666', marginTop: '4px', fontSize: '14px' }}>세광고 학생들의 문제풀이 능력 향상을 위한 웹</p>
+          <h1 style={{ color: '#333', margin: 0, fontSize: '26px' }}>광기(光氣): 세광고 학생들의 기출분석</h1>
+          <p style={{ color: '#666', marginTop: '4px', fontSize: '14px' }}>세광고 학생들의 기출분석을 위한 웹</p>
         </div>
         <div>
           {!isAdmin ? (
